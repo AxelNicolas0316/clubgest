@@ -3,10 +3,10 @@ from werkzeug.utils import secure_filename
 import mysql.connector
 from mysql.connector import Error
 import os
-from dotenv import load_dotenv
 
-# Cargar variables de entorno
-load_dotenv()
+# NO usar dotenv en producción - Render usa variables de entorno directamente
+# from dotenv import load_dotenv
+# load_dotenv()  # <--- ELIMINAR o usar try/except
 
 # Importamos las funciones que creamos para las recomendaciones
 from recomendaciones import PREGUNTAS_RECOMENDACION, calcular_recomendacion, obtener_clubes_recomendados
@@ -31,26 +31,67 @@ def allowed_file(filename):
 def get_connection():
     """Obtiene una conexión a la base de datos de Aiven usando variables de entorno"""
     try:
+        # Obtener variables de entorno (Render las inyecta)
+        db_host = os.environ.get('DB_HOST', 'mysql-3f49e41c-axelpsoriano03-a945.h.aivencloud.com')
+        db_user = os.environ.get('DB_USER', 'avnadmin')
+        db_password = os.environ.get('DB_PASSWORD', '')
+        db_name = os.environ.get('DB_NAME', 'defaultdb')
+        db_port = int(os.environ.get('DB_PORT', 18162))
+        
+        # Debug en logs de Render
+        print(f"Intentando conectar a BD en {db_host}:{db_port}")
+        print(f"Usuario: {db_user}")
+        print(f"Base de datos: {db_name}")
+        print(f"Password presente: {'Sí' if db_password else 'NO'}")  # No mostrar la contraseña
+        
+        if not db_password:
+            print("⚠️ ADVERTENCIA: DB_PASSWORD no está configurada en variables de entorno")
+            return None
+            
         conn = mysql.connector.connect(
-            host=os.environ.get('DB_HOST', 'mysql-3f49e41c-axelpsoriano03-a945.h.aivencloud.com'),
-            user=os.environ.get('DB_USER', 'avnadmin'),
-            password=os.environ.get('DB_PASSWORD', ''),
-            database=os.environ.get('DB_NAME', 'defaultdb'),
-            port=int(os.environ.get('DB_PORT', 18162)),
+            host=db_host,
+            user=db_user,
+            password=db_password,
+            database=db_name,
+            port=db_port,
             connection_timeout=30
         )
+        print("✅ Conexión exitosa a la base de datos")
         return conn
     except Error as e:
-        print(f"Error de conexión a MySQL: {e}")
+        print(f"❌ Error de conexión a MySQL: {e}")
         return None
 
-# Crear conexión global
-conexion = get_connection()
-if conexion is None:
-    print("No se pudo conectar a la base de datos. Verifica tus credenciales.")
-    exit(1)
+# IMPORTANTE: NO crear conexión global al inicio
+# En su lugar, crear cursor en cada ruta o usar lazy initialization
+cursor = None
+conexion = None
 
-cursor = conexion.cursor(dictionary=True)
+def ensure_connection():
+    """Asegura que la conexión esté activa antes de cada consulta"""
+    global conexion, cursor
+    try:
+        if conexion is None or not conexion.is_connected():
+            conexion = get_connection()
+            if conexion:
+                cursor = conexion.cursor(dictionary=True)
+        return conexion is not None
+    except Exception as e:
+        print(f"Error en ensure_connection: {e}")
+        return False
+
+# Inicializar conexión (con manejo de error)
+try:
+    conexion = get_connection()
+    if conexion:
+        cursor = conexion.cursor(dictionary=True)
+        print("✅ Conexión inicial establecida")
+    else:
+        print("⚠️ No se pudo establecer conexión inicial - se reintentará en cada ruta")
+except Exception as e:
+    print(f"Error inicial: {e}")
+    conexion = None
+    cursor = None
 
 
 @app.route('/imagenes/<path:filename>')
@@ -67,6 +108,9 @@ def inicio():
 @app.route("/formulario")
 def formulario():
     """Muestra el formulario de registro con niveles y especialidades"""
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
+    
     cursor.execute("SELECT * FROM niveles")
     niveles = cursor.fetchall()
     cursor.execute("SELECT * FROM especialidades")
@@ -77,6 +121,9 @@ def formulario():
 @app.route("/inscribirse", methods=["POST"])
 def inscribirse():
     """Guarda al estudiante en la base de datos después de validar su correo"""
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
+    
     nombre = request.form["nombre"]
     apellido = request.form["apellido"]
     correo = request.form["correo"].lower()
@@ -154,6 +201,9 @@ def recomendacion_clubes():
     if "respuestas_recomendacion" not in session:
         return redirect("/cuestionario")
     
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
+    
     nivel = int(session.get("nivel"))
     
     # Obtener clubes disponibles con sus cupos
@@ -182,6 +232,9 @@ def clubes():
     if "id_estudiante" not in session:
         return redirect("/formulario")
 
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
+    
     nivel = int(session.get("nivel"))
     
     cursor.execute("""
@@ -202,6 +255,9 @@ def inscribir_club():
     if "id_estudiante" not in session:
         return redirect("/")
 
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
+    
     estudiante = session["id_estudiante"]
     club = request.form.get("club")
 
@@ -249,6 +305,9 @@ def admin():
     if "admin" not in session:
         return redirect("/login")
 
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
+
     # Datos de clubes con cupos usados
     cursor.execute("""
     SELECT clubes.*, niveles.nombre_nivel, COUNT(inscripciones.id_inscripcion) AS cupos_usados
@@ -282,6 +341,9 @@ def crear_club():
     if "admin" not in session:
         return redirect("/login")
     
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
+    
     nombre = request.form["nombre"]
     tutor = request.form.get("tutor", "Por asignar")
     descripcion = request.form.get("descripcion", "")
@@ -311,7 +373,7 @@ def crear_club():
         conexion.commit()
         flash("Club creado exitosamente.", "success")
     except mysql.connector.Error as err:
-        if err.errno == 1062: # Duplicate entry
+        if err.errno == 1062:
             flash("Error: El tutor ya está asignado.", "error")
         else:
             flash(f"Error en la base de datos: {err}", "error")
@@ -324,6 +386,9 @@ def editar_club(id):
     """Actualiza la información de un club, incluyendo su imagen si se sube una nueva"""
     if "admin" not in session:
         return redirect("/login")
+
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
 
     nombre = request.form["nombre"]
     tutor = request.form.get("tutor", "Por asignar")
@@ -389,6 +454,8 @@ def editar_club(id):
 @app.route("/desactivar/<id>")
 def desactivar(id):
     """Desactiva un club para que no reciba más inscripciones"""
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
     cursor.execute("UPDATE clubes SET activo = 0 WHERE id_club = %s", (id,))
     conexion.commit()
     return redirect(request.headers.get("Referer") or "/admin")
@@ -397,6 +464,8 @@ def desactivar(id):
 @app.route("/activar/<id>")
 def activar(id):
     """Reactiva un club desactivado anteriormente"""
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
     cursor.execute("UPDATE clubes SET activo = 1 WHERE id_club = %s", (id,))
     conexion.commit()
     return redirect(request.headers.get("Referer") or "/admin")
@@ -405,6 +474,8 @@ def activar(id):
 @app.route("/eliminar_club/<id>")
 def eliminar_club(id):
     """Elimina un club y libera a los estudiantes inscritos en él"""
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
     try:
         # Obtener estudiantes del club
         cursor.execute("SELECT id_estudiante FROM inscripciones WHERE id_club = %s", (id,))
@@ -431,6 +502,9 @@ def admin_inscripciones():
     """Reporte de estudiantes agrupados por nivel académico"""
     if "admin" not in session:
         return redirect("/login")
+
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
 
     def get_lista(id_nivel):
         cursor.execute("""
@@ -468,6 +542,9 @@ def admin_clubes():
     if "admin" not in session:
         return redirect("/login")
 
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
+
     def get_lista_club(id_nivel):
         cursor.execute("""
         SELECT clubes.id_club, clubes.nombre_club, clubes.tutor, estudiantes.id_estudiante,
@@ -502,6 +579,9 @@ def editar_estudiante():
     """Edita todos los datos del estudiante y su inscripción a un club"""
     if "admin" not in session:
         return redirect("/login")
+
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
 
     id_est = request.form.get("id_estudiante")
     nombres = request.form.get("nombres")
@@ -540,6 +620,9 @@ def admin_informes():
     if "admin" not in session:
         return redirect("/login")
 
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
+
     cursor.execute("SELECT * FROM niveles")
     niveles = cursor.fetchall()
 
@@ -562,6 +645,9 @@ def logout():
 @app.route("/buscar_estudiante")
 def buscar_estudiante():
     """API para buscar estudiantes por nombre, apellido o correo"""
+    if not ensure_connection():
+        return {"resultados": []}
+    
     query = request.args.get("q", "")
     if not query:
         return {"resultados": []}
@@ -580,6 +666,9 @@ def buscar_estudiante():
 @app.route("/verificar_correo")
 def verificar_correo():
     """API para verificar si un correo ya está registrado"""
+    if not ensure_connection():
+        return {"registrado": False}
+    
     correo = request.args.get("correo", "").lower().strip()
     if not correo:
         return {"registrado": False}
@@ -592,6 +681,9 @@ def verificar_correo():
 @app.route("/get_clubes_por_nivel")
 def get_clubes_por_nivel():
     """API para obtener clubes filtrados por nivel para el reporte avanzado"""
+    if not ensure_connection():
+        return {"clubes": []}
+    
     id_nivel = request.args.get("id_nivel", "todos")
     if id_nivel == "todos":
         cursor.execute("SELECT id_club, nombre_club FROM clubes ORDER BY nombre_club")
@@ -605,6 +697,9 @@ def obtener_datos_informe(tipo, filtro=None, filtros_avanzados=None):
     Obtiene los datos de la base de datos según el tipo de informe y el filtro.
     tipo: 'nivel' | 'club' | 'especialidad' | 'avanzado'
     """
+    if not ensure_connection():
+        return []
+    
     sql = """
         SELECT e.nombres, e.apellidos, e.correo_institucional, e.genero,
                n.nombre_nivel, c.nombre_club, c.tutor, esp.nombre_especialidad
@@ -651,6 +746,9 @@ def informe(formato, tipo):
     """Genera y descarga informes en PDF o Excel"""
     if "admin" not in session:
         return redirect("/login")
+    
+    if not ensure_connection():
+        return render_template("error.html", error="No se pudo conectar a la base de datos")
         
     if tipo == 'avanzado':
         filtros = {
@@ -730,30 +828,12 @@ def utility_processor():
     return dict(get_club_icon=get_club_icon)
 
 
-if __name__ == "__main__":
-    # Fix database constraints
-    try:
-        temp_conn = get_connection()
-        if temp_conn:
-            temp_cursor = temp_conn.cursor()
-            
-            # Remove unique_club_por_nivel
-            try:
-                temp_cursor.execute("ALTER TABLE clubes DROP INDEX unique_club_por_nivel")
-                print("Constraint unique_club_por_nivel removed.")
-            except: pass
-            
-            # Add unique_tutor
-            try:
-                temp_cursor.execute("ALTER TABLE clubes ADD UNIQUE INDEX unique_tutor (tutor)")
-                print("Constraint unique_tutor added.")
-            except: pass
-            
-            temp_conn.commit()
-            temp_cursor.close()
-            temp_conn.close()
-    except Exception as e:
-        print(f"DB Fix Error: {e}")
+# Crear template de error si no existe
+@app.route('/error')
+def error_page():
+    return render_template("error.html", error="Ha ocurrido un error")
 
+
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
