@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscripciones por Club — ClubGest</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --navy:  #0a1628;
+            --blue:  #0d2a5e;
+            --gold:  #d4a017;
+            --gold2: #f0c040;
+            --red:   #c0272d;
+            --muted: #7a9cc4;
+            --white: #ffffff;
+            --card:  #0d1e38;
+            --card2: #0f2242;
+            --border: rgba(255,255,255,0.07);
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--navy);
+            color: var(--white);
+            min-height: 100vh;
+            display: flex; flex-direction: column;
+        }
+
+
+        body::before {
+            content: "";
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 55vh; height: 55vh;
+            background: url('/imagenes/donbosco_Animado.jpg') no-repeat center / contain;
+            opacity: 0.025; pointer-events: none; z-index: 0;
+            filter: grayscale(1);
+        }
+
+        /* Barra de navegación superior con menú y logo */
+        .navbar {
+            background: rgba(6,15,30,0.95);
+            border-bottom: 1px solid rgba(255,255,255,0.055);
+            backdrop-filter: blur(24px);
+            padding: 0 28px; height: 68px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 2000;
+        }
+        .navbar::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, var(--red), var(--gold), var(--gold2));
+        }
+
+        @keyframes shimmer { 0% { left: -100%; } 100% { left: 150%; } }
+
+        .nav-brand {
+            display: flex; align-items: center; gap: 11px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 14px; padding: 7px 15px 7px 7px;
+            text-decoration: none; margin-right: 14px; flex-shrink: 0;
+        }
+        .nav-logo {
+            width: 42px; height: 42px; border-radius: 50%;
+            background: white; border: 2px solid var(--gold);
+            box-shadow: 0 0 16px rgba(212,160,23,0.4);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; padding: 3px;
+        }
+        .nav-logo img { width: 100%; height: 100%; object-fit: contain; }
+        .nav-brand-name {
+            font-family: 'Sora', sans-serif;
+            font-size: 16px; font-weight: 900; color: var(--white); line-height: 1;
+        }
+        .nav-brand-name em { color: var(--gold2); font-style: normal; }
+        .nav-admin-pill {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: linear-gradient(135deg, var(--gold), var(--gold2));
+            color: var(--navy); padding: 2px 9px; border-radius: 20px;
+            font-size: 9px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.8px; margin-top: 3px;
+        }
+
+        .nav-links { display: flex; align-items: center; gap: 2px; flex: 1; }
+        .nav-link {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 15px; border-radius: 10px;
+            font-size: 13px; font-weight: 600; color: var(--muted);
+            text-decoration: none; transition: all 0.22s; white-space: nowrap;
+            position: relative;
+        }
+        .nav-link:hover { color: var(--white); background: rgba(255,255,255,0.05); }
+        .nav-link.active {
+            color: var(--gold2); background: rgba(212,160,23,0.1);
+            border: 1px solid rgba(212,160,23,0.18);
+        }
+        .nav-link.active::after {
+            content: ''; position: absolute; bottom: -1px; left: 50%;
+            transform: translateX(-50%);
+            width: 16px; height: 2px; border-radius: 2px;
+            background: var(--gold2); box-shadow: 0 0 10px var(--gold2);
+        }
+
+        .nav-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+        .btn-search {
+            width: 38px; height: 38px; border-radius: 10px;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+            color: var(--muted); cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .btn-search:hover { color: var(--gold2); border-color: rgba(212,160,23,0.3); background: rgba(212,160,23,0.07); }
+        .btn-logout {
+            display: flex; align-items: center; gap: 7px;
+            background: rgba(192,39,45,0.12); border: 1px solid rgba(192,39,45,0.28);
+            color: #ff8888; padding: 8px 16px; border-radius: 10px;
+            font-size: 12.5px; font-weight: 700; text-decoration: none; transition: all 0.2s;
+        }
+        .btn-logout:hover { background: rgba(192,39,45,0.25); transform: translateY(-1px); }
+
+        /* Buscador para filtrar clubes rápidamente */
+        .search-overlay {
+            position: fixed; inset: 0;
+            background: rgba(8,18,36,0.92); backdrop-filter: blur(16px);
+            z-index: 2000; display: none; flex-direction: column;
+            align-items: center; padding-top: 100px;
+        }
+        .search-overlay.open { display: flex; animation: fadein 0.25s ease both; }
+        .search-box { width: 90%; max-width: 680px; position: relative; }
+        .search-box input {
+            width: 100%; background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(212,160,23,0.3); border-radius: 18px;
+            padding: 18px 28px 18px 58px;
+            color: var(--white); font-size: 18px; font-family: 'Sora', sans-serif; outline: none;
+        }
+        .search-box input:focus { border-color: var(--gold); box-shadow: 0 0 28px rgba(212,160,23,0.18); }
+        .si { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--gold); font-size: 20px; }
+        .sc { position: absolute; right: -52px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 24px; cursor: pointer; }
+        .search-results { width: 90%; max-width: 680px; margin-top: 24px; max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .result-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 14px 20px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+        .result-item:hover { background: rgba(255,255,255,0.06); border-color: rgba(212,160,23,0.25); }
+
+        /* Área principal donde se mostrarán todos los clubes */
+        .page {
+            position: relative; z-index: 1;
+            max-width: 1380px;          /* ← igual que admin.html       */
+            width: 100%;
+            margin: 0 auto;             /* ← centrado                   */
+            padding: 36px 28px 80px;   /* ← mismo padding lateral      */
+            flex: 1;
+        }
+
+        /* Encabezado principal con información de la institución */
+        .hero-header {
+            background: linear-gradient(135deg, var(--card2) 0%, var(--card) 100%);
+            border: 1px solid rgba(212,160,23,0.12); border-radius: 24px;
+            padding: 32px 44px; margin-bottom: 28px;
+            position: relative; overflow: hidden;
+            display: flex; align-items: center; justify-content: space-between; gap: 30px;
+            animation: fadein 0.5s ease both;
+        }
+        .hero-logo-wrap {
+            width: 90px; height: 90px; border-radius: 22px;
+            background: white; border: 3px solid var(--gold);
+            box-shadow: 0 0 24px rgba(212,160,23,0.3);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; padding: 8px; flex-shrink: 0; z-index: 2;
+        }
+        .hero-logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
+        .hero-content { flex: 1; position: relative; z-index: 2; }
+        .hero-header::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, var(--red), var(--gold) 40%, var(--gold2) 70%, transparent);
+        }
+        .hero-header::after {
+            content: ''; position: absolute; top: -40px; right: 140px;
+            width: 2px; height: 200%;
+            background: linear-gradient(to bottom, transparent, rgba(212,160,23,0.08), transparent);
+            transform: rotate(15deg);
+        }
+        .hero-deco-circle {
+            position: absolute; right: -60px; bottom: -60px;
+            width: 200px; height: 200px; border-radius: 50%;
+            border: 30px solid rgba(212,160,23,0.04);
+        }
+        .hero-eyebrow {
+            font-size: 9.5px; font-weight: 800; letter-spacing: 3.5px;
+            text-transform: uppercase; color: var(--gold2);
+            display: flex; align-items: center; gap: 9px; margin-bottom: 10px;
+        }
+        .hero-eyebrow::before { content: ''; width: 24px; height: 2px; background: var(--gold2); border-radius: 1px; }
+        .hero-title {
+            font-family: 'Sora', sans-serif;
+            font-size: clamp(16px, 2.2vw, 24px); font-weight: 900; color: var(--white);
+            line-height: 1.1; margin-bottom: 7px; letter-spacing: -0.5px;
+        }
+        .hero-sub { font-size: 13px; color: var(--muted); }
+        .hero-clock {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+            border-radius: 12px; padding: 10px 18px; text-align: right; flex-shrink: 0;
+        }
+        .hero-clock strong { color: var(--gold2); font-size: 22px; font-weight: 600; display: block; line-height: 1; }
+        .hero-clock span { font-size: 10px; color: rgba(122,156,196,0.55); margin-top: 3px; display: block; }
+
+        /* Tarjetas pequeñas que muestran estadísticas de clubes */
+        .stat-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 16px; margin-bottom: 28px;
+        }
+        .stat-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 18px; padding: 22px 24px;
+            display: flex; align-items: center; gap: 18px;
+            animation: fadein 0.4s ease both;
+            transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+            position: relative; overflow: hidden;
+        }
+        .stat-card::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--gold2), transparent);
+            animation: scan 3.5s linear infinite;
+        }
+        @keyframes scan { to { left: 100%; } }
+        .stat-card:hover { transform: translateY(-5px); border-color: rgba(212,160,23,0.3); box-shadow: 0 12px 32px rgba(0,0,0,0.35); }
+        .stat-card:nth-child(2) { animation-delay: 0.07s; }
+        .stat-card:nth-child(3) { animation-delay: 0.14s; }
+        .stat-card:nth-child(4) { animation-delay: 0.21s; }
+        .sc-icon {
+            width: 46px; height: 46px; border-radius: 13px;
+            background: rgba(212,160,23,0.1); border: 1px solid rgba(212,160,23,0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: var(--gold2); flex-shrink: 0;
+        }
+        .sc-num { font-family: 'Sora', sans-serif; font-size: 34px; font-weight: 800; color: var(--white); line-height: 1; text-shadow: 0 0 20px rgba(212,160,23,0.25); }
+        .sc-label { font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px; margin-top: 5px; }
+
+        /* Estilos para las tarjetas que contienen información de clubes */
+        .card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 20px; overflow: hidden;
+            animation: fadein 0.45s ease both; margin-bottom: 20px;
+        }
+        .card-header {
+            padding: 18px 24px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; gap: 14px;
+            background: rgba(255,255,255,0.015);
+        }
+        .card-header-left { display: flex; align-items: center; gap: 14px; }
+        .ch-num {
+            width: 36px; height: 36px; border-radius: 10px;
+            background: rgba(212,160,23,0.12); border: 1px solid rgba(212,160,23,0.25);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 800;
+            color: var(--gold2); flex-shrink: 0;
+        }
+        .ch-title { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 700; color: var(--white); }
+        .ch-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+        .ch-count {
+            background: rgba(212,160,23,0.12); border: 1px solid rgba(212,160,23,0.25);
+            color: var(--gold2); font-size: 12px; font-weight: 700;
+            padding: 4px 12px; border-radius: 20px; white-space: nowrap;
+        }
+
+        /* Club group */
+        .club-group-title {
+            padding: 12px 24px;
+            background: rgba(13,42,94,0.4);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .cgt-left { display: flex; align-items: center; gap: 10px; }
+        .cgt-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold2); flex-shrink: 0; }
+        .cgt-name {
+            font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 800;
+            color: var(--gold2); letter-spacing: 0.5px;
+        }
+        .cgt-tutor { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+        .cgt-count {
+            background: rgba(212,160,23,0.08); border: 1px solid rgba(212,160,23,0.2);
+            color: var(--gold2); font-size: 11px; font-weight: 700;
+            padding: 3px 10px; border-radius: 20px;
+        }
+
+        /* Estilos para las tablas que listan los clubes */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { border-bottom: 1px solid var(--border); }
+        th {
+            padding: 11px 16px; font-size: 10px; font-weight: 700;
+            color: var(--muted); letter-spacing: 1.8px; text-transform: uppercase;
+            text-align: left; background: rgba(255,255,255,0.018);
+        }
+        td { padding: 13px 16px; font-size: 13px; color: #c8d8ee; border-bottom: 1px solid rgba(255,255,255,0.038); }
+        tbody tr { transition: background 0.18s; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: rgba(212,160,23,0.04); }
+
+        .student-name { font-weight: 700; color: var(--white); }
+
+        /* Gender pill */
+        .gender-pill {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 11px; border-radius: 20px; font-size: 11.5px; font-weight: 600;
+        }
+        .gender-m { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); color: #60a5fa; }
+        .gender-f { background: rgba(236,72,153,0.12); border: 1px solid rgba(236,72,153,0.25); color: #f472b6; }
+
+        .time-cell { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
+
+        .empty-state {
+            padding: 52px; text-align: center; color: var(--muted);
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+        }
+        .empty-state i { font-size: 32px; opacity: 0.2; }
+
+        @keyframes fadein {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Estilos para pantallas más pequeñas */
+        @media (max-width: 1100px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 900px)  { .page { padding: 24px 18px 60px; } .hero-header { flex-direction: column; align-items: flex-start; } }
+        @media (max-width: 700px)  { .stat-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 500px)  { .nav-link span { display: none; } }
+    </style>
+</head>
+<body>
+
+<!-- Barra de navegación superior con el logo y menú -->
+<nav class="navbar">
+    <a href="/admin" class="nav-brand">
+        <div class="nav-logo">
+            <img src="/imagenes/don_bosco.png"
+                 onerror="this.src='https://donboscolatola.edu.ec/wp-content/uploads/2024/01/cropped-LOGO-DON-BOSCO.png';this.onerror=null;"
+                 alt="Logo">
+        </div>
+        <div>
+            <div class="nav-brand-name">Club<em>Gest</em></div>
+            <div class="nav-admin-pill"><i class="fas fa-shield-halved"></i> Admin</div>
+        </div>
+    </a>
+
+    <div class="nav-links">
+        <a href="/admin" class="nav-link"><i class="fas fa-chart-pie"></i><span>Dashboard</span></a>
+        <a href="/admin_inscripciones" class="nav-link"><i class="fas fa-layer-group"></i><span>Por Nivel</span></a>
+        <a href="/admin_clubes" class="nav-link active"><i class="fas fa-users-rectangle"></i><span>Por Club</span></a>
+         <a href="/admin_Informes" class="nav-link"><i class="fas fa-users-rectangle"></i><span>Informes</span></a>
+    </div>
+
+    <div class="nav-right">
+        <button class="btn-search" onclick="toggleSearch()"><i class="fas fa-search"></i></button>
+        <a href="/logout" class="btn-logout"><i class="fas fa-right-from-bracket"></i><span>Salir</span></a>
+    </div>
+</nav>
+
+<!-- Buscador para filtrar clubes -->
+<div id="searchOverlay" class="search-overlay">
+    <div class="search-box">
+        <i class="fas fa-search si"></i>
+        <input type="text" id="searchInput" placeholder="Buscar estudiante por nombre..."
+               oninput="handleSearch(this.value)">
+        <i class="fas fa-xmark sc" onclick="toggleSearch()"></i>
+    </div>
+    <div id="searchResults" class="search-results"></div>
+</div>
+
+<!-- Contenedor principal de la página -->
+<div class="page">
+
+    <!-- Hero -->
+    <div class="hero-header">
+        <div class="hero-logo-wrap">
+            <img src="/imagenes/logo_donbosco.jpg"
+                 onerror="this.src='https://donboscolatola.edu.ec/wp-content/uploads/2024/01/cropped-LOGO-DON-BOSCO.png';this.onerror=null;"
+                 alt="Logo">
+        </div>
+        <div class="hero-content">
+            <div class="hero-eyebrow">Panel de administración</div>
+            <div class="hero-title">Unidad Educativa Fiscomisional Salesiana</div>
+            <div class="hero-sub">Don Bosco La Tola · Inscripciones por Club</div>
+        </div>
+        <div class="hero-clock">
+            <strong id="liveTime">--:--</strong>
+            <span id="liveDate">---</span>
+        </div>
+        <div class="hero-deco-circle"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-grid">
+        <div class="stat-card">
+            <div class="sc-icon"><i class="fas fa-users"></i></div>
+            <div>
+                <div class="sc-num">{{ (primero|length) + (segundo|length) + (tercero|length) }}</div>
+                <div class="sc-label">Total inscritos</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="sc-icon"><i class="fas fa-book-open"></i></div>
+            <div>
+                <div class="sc-num">{{ primero|length }}</div>
+                <div class="sc-label">1ro Bachillerato</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="sc-icon"><i class="fas fa-microscope"></i></div>
+            <div>
+                <div class="sc-num">{{ segundo|length }}</div>
+                <div class="sc-label">2do Bachillerato</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="sc-icon"><i class="fas fa-graduation-cap"></i></div>
+            <div>
+                <div class="sc-num">{{ tercero|length }}</div>
+                <div class="sc-label">3ro Bachillerato</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tablas por nivel -->
+    {% set niveles_data = [
+        {'num': '1', 'nombre': '1ro de Bachillerato', 'data': primero},
+        {'num': '2', 'nombre': '2do de Bachillerato', 'data': segundo},
+        {'num': '3', 'nombre': '3ro de Bachillerato', 'data': tercero}
+    ] %}
+
+    {% for nivel in niveles_data %}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-left">
+                <div class="ch-num">{{ nivel.num }}</div>
+                <div>
+                    <div class="ch-title">{{ nivel.nombre }}</div>
+                    <div class="ch-sub">
+                        {% if nivel.data %}{{ nivel.data|length }} estudiante{% if nivel.data|length != 1 %}s{% endif %} inscrito{% if nivel.data|length != 1 %}s{% endif %}{% else %}Sin inscripciones{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if nivel.data %}
+            <div class="ch-count">{{ nivel.data|length }} registros</div>
+            {% endif %}
+        </div>
+
+        {% if nivel.data %}
+            {% for club in nivel.data|groupby("nombre_club") %}
+
+            <!-- Subtítulo del club -->
+            <div class="club-group-title">
+                <div class="cgt-left">
+                    <div class="cgt-dot"></div>
+                    <div class="cgt-name">{{ club.grouper }}</div>
+                    {% set first = club.list[0] %}
+                    {% if first.tutor %}
+                    <div class="cgt-tutor">
+                        <i class="fas fa-chalkboard-user" style="font-size:10px;"></i>
+                        {{ first.tutor }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="cgt-count">{{ club.list|length }} alumno{% if club.list|length != 1 %}s{% endif %}</div>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Estudiante</th>
+                            <th>Correo Institucional</th>
+                            <th>Género</th>
+                            <th>Especialidad</th>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in club.list %}
+                        {% if e.nombres %}
+                        <tr>
+                            <td class="student-name">{{ e.nombres }} {{ e.apellidos }}</td>
+                            <td style="color:var(--muted);font-size:12px;">{{ e.correo_institucional }}</td>
+                            <td>
+                                {% set g = e.genero|lower %}
+                                {% if 'mas' in g or g == 'm' %}
+                                    <span class="gender-pill gender-m">♂ Masculino</span>
+                                {% elif 'fem' in g or g == 'f' %}
+                                    <span class="gender-pill gender-f">♀ Femenino</span>
+                                {% else %}
+                                    {{ e.genero }}
+                                {% endif %}
+                            </td>
+                            <td>{{ e.nombre_especialidad }}</td>
+                            <td class="time-cell">
+                                <i class="fas fa-calendar-alt" style="font-size:10px;margin-right:4px;"></i>
+                                {{ e.fecha if e.fecha else '—' }}
+                            </td>
+                            <td class="time-cell" style="color:var(--gold2);">
+                                <i class="fas fa-clock" style="font-size:10px;margin-right:4px;"></i>
+                                {{ e.hora if e.hora else '—' }}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-folder-open"></i>
+                <p>No hay inscripciones registradas en este nivel.</p>
+            </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+</div>
+
+<script>
+    function updateClock() {
+        const n = new Date();
+        document.getElementById('liveTime').textContent = n.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'});
+        document.getElementById('liveDate').textContent  = n.toLocaleDateString('es-EC',{weekday:'short',day:'numeric',month:'short'});
+    }
+    updateClock(); setInterval(updateClock, 1000);
+
+    function toggleSearch() {
+        const o = document.getElementById('searchOverlay');
+        const open = o.classList.contains('open');
+        o.classList.toggle('open');
+        if (!open) { document.getElementById('searchInput').focus(); document.body.style.overflow='hidden'; }
+        else { document.body.style.overflow='auto'; document.getElementById('searchResults').innerHTML=''; }
+    }
+    document.addEventListener('keydown', e => {
+        if (e.key==='Escape' && document.getElementById('searchOverlay').classList.contains('open')) toggleSearch();
+    });
+    async function handleSearch(q) {
+        const r = document.getElementById('searchResults');
+        if (!q.trim()) { r.innerHTML=''; return; }
+        try {
+            const res = await fetch(`/buscar_estudiante?q=${encodeURIComponent(q)}`);
+            const data = await res.json();
+            r.innerHTML = data.resultados.length
+                ? data.resultados.map(s => `
+                    <div class="result-item">
+                        <div>
+                            <div style="font-weight:700;color:#fff;font-size:14px;">${s.nombres} ${s.apellidos}</div>
+                            <div style="color:var(--muted);font-size:12px;">${s.correo_institucional}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="background:rgba(212,160,23,0.1);color:var(--gold2);padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;">${s.nombre_club||'Sin Club'}</div>
+                            <div style="color:var(--muted);font-size:10px;margin-top:3px;">${s.nombre_nivel||''}</div>
+                        </div>
+                    </div>`).join('')
+                : '<p style="text-align:center;color:var(--muted);margin-top:20px;">No se encontraron estudiantes.</p>';
+        } catch(e) { console.error(e); }
+    }
+</script>
+</body>
+</html>

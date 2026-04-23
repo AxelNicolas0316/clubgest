@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuestionario de Intereses — ClubGest</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --navy:  #0a1628;
+            --blue:  #0d2a5e;
+            --gold:  #d4a017;
+            --gold2: #f0c040;
+            --red:   #c0272d;
+            --muted: #7a9cc4;
+            --white: #ffffff;
+            --card:  #0f2140;
+            --border: rgba(255,255,255,0.07);
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--navy);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            padding: 24px;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--red), var(--gold), var(--gold2), var(--red));
+            background-size: 300% 100%; animation: glow-line 5s linear infinite;
+            box-shadow: 0 0 15px rgba(212,160,23,0.4); z-index: 9999;
+        }
+        @keyframes glow-line { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+
+       
+        .deco { position: fixed; border-radius: 50%; filter: blur(80px); z-index: 0; pointer-events: none; opacity: 0.13; }
+        .d1 { width: 420px; height: 420px; background: var(--gold);  top: -100px; right: -100px; }
+        .d2 { width: 320px; height: 320px; background: var(--red);   bottom: -60px; left: -60px; }
+        .d3 { width: 280px; height: 280px; background: #1e3a8a;      top: 40%; left: 30%; }
+
+        .container {
+            width: 100%; max-width: 860px;
+            position: relative; z-index: 1;
+        }
+
+        /*  HEADER  */
+        .header {
+            text-align: center; margin-bottom: 36px;
+            animation: fadein 0.5s ease both;
+        }
+        .school-logo {
+            width: 80px; height: 80px;
+            background: white; border-radius: 50%;
+            border: 3px solid var(--gold);
+            box-shadow: 0 0 24px rgba(212,160,23,0.4);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; margin: 0 auto 18px;
+        }
+        .school-logo img { width: 105%; height: 105%; object-fit: cover; }
+        .header h1 {
+            font-family: 'Sora', sans-serif;
+            font-size: clamp(22px, 4vw, 32px); font-weight: 800;
+            color: var(--white); margin-bottom: 8px;
+        }
+        .header h1 em { color: var(--gold2); font-style: normal; }
+        .header p { font-size: 14px; color: var(--muted); }
+
+        
+        .quiz-card {
+            background: rgba(13,26,56,0.65);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--border);
+            border-radius: 28px; padding: 44px 48px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            position: relative; overflow: hidden;
+            animation: fadein 0.5s 0.15s ease both;
+        }
+        .quiz-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 2.5px;
+            background: linear-gradient(90deg, var(--red), var(--gold), var(--gold2));
+        }
+
+       
+        .progress-wrap { margin-bottom: 36px; }
+        .progress-meta {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 10px;
+        }
+        .progress-label {
+            font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px;
+            text-transform: uppercase; color: var(--gold2);
+        }
+        .progress-pct { font-size: 12px; font-weight: 700; color: var(--muted); }
+        .progress-track {
+            height: 5px; background: rgba(255,255,255,0.06);
+            border-radius: 10px; position: relative;
+        }
+        .progress-fill {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, var(--gold), var(--gold2));
+            box-shadow: 0 0 12px rgba(212,160,23,0.4);
+            transition: width 0.55s cubic-bezier(0.34,1.56,0.64,1);
+            border-radius: 10px;
+        }
+
+        .progress-tooltip {
+            position: absolute;
+            top: -35px;
+            right: 0;
+            background: var(--gold);
+            color: var(--navy);
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 800;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .progress-tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            right: 10px;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid var(--gold);
+        }
+        .progress-wrap:hover .progress-tooltip {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Question */
+        .q-wrapper { min-height: 280px; }
+        .q-badge {
+            display: inline-block;
+            background: rgba(212,160,23,0.1); border: 1px solid rgba(212,160,23,0.25);
+            color: var(--gold2); font-size: 12px; font-weight: 700;
+            padding: 5px 14px; border-radius: 50px; margin-bottom: 16px;
+            font-family: 'Sora', sans-serif; letter-spacing: 0.5px;
+        }
+        .q-text {
+            font-family: 'Sora', sans-serif;
+            font-size: clamp(18px, 3vw, 24px); font-weight: 700;
+            line-height: 1.4; margin-bottom: 32px; color: var(--white);
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .option-card {
+            background: rgba(255,255,255,0.03);
+            border: 1.5px solid rgba(255,255,255,0.08);
+            border-radius: 18px; padding: 20px 18px;
+            cursor: pointer; display: flex; align-items: center; gap: 14px;
+            position: relative; overflow: hidden;
+            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+        }
+        .option-card:hover {
+            background: rgba(212,160,23,0.05);
+            border-color: rgba(212,160,23,0.3);
+            transform: translateY(-3px);
+        }
+        .option-card.selected {
+            background: linear-gradient(135deg, rgba(212,160,23,0.14), rgba(13,42,94,0.4));
+            border-color: var(--gold2);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2), 0 0 16px rgba(212,160,23,0.1);
+        }
+        .option-card.selected::after {
+            content: '✓';
+            position: absolute; right: 16px; top: 14px;
+            color: var(--gold2); font-weight: 900; font-size: 16px;
+        }
+        .opt-icon {
+            width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
+            background: rgba(255,255,255,0.05);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; transition: all 0.25s;
+        }
+        .option-card:hover .opt-icon,
+        .option-card.selected .opt-icon {
+            background: var(--gold); color: var(--navy); transform: scale(1.08) rotate(4deg);
+        }
+        .opt-label {
+            font-size: 14px; font-weight: 600; color: var(--white); line-height: 1.4;
+        }
+
+       
+        .nav-footer {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 40px;
+        }
+        .dots-wrap { display: flex; gap: 7px; align-items: center; }
+
+        .btn-nav {
+            padding: 12px 24px; border-radius: 12px;
+            font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 700;
+            cursor: pointer; transition: all 0.25s;
+            display: flex; align-items: center; gap: 8px;
+            text-transform: uppercase; letter-spacing: 1px; border: none;
+        }
+        .btn-prev {
+            background: rgba(255,255,255,0.05);
+            color: var(--muted);
+            border: 1px solid rgba(255,255,255,0.09);
+        }
+        .btn-prev:hover:not(:disabled) { background: rgba(255,255,255,0.1); color: var(--white); }
+        .btn-prev:disabled { opacity: 0.3; cursor: not-allowed; }
+        .btn-next, .btn-submit {
+            background: linear-gradient(135deg, var(--gold), var(--gold2));
+            color: var(--navy); border: none; font-weight: 800;
+            box-shadow: 0 8px 24px rgba(212,160,23,0.3);
+            position: relative; overflow: hidden;
+        }
+        .btn-next::after, .btn-submit::after {
+            content: ''; position: absolute; top: -50%; left: -100%; width: 100%; height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: rotate(25deg); transition: none;
+        }
+        .btn-next:hover:not(:disabled), .btn-submit:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(212,160,23,0.45), 0 0 15px rgba(212,160,23,0.2);
+        }
+        .btn-next:hover:not(:disabled)::after, .btn-submit:hover:not(:disabled)::after { animation: shimmer 1.5s infinite; }
+
+        @keyframes shimmer { 0% { left: -100%; } 100% { left: 100%; } }
+        .btn-next:disabled, .btn-submit:disabled { opacity: 0.35; cursor: not-allowed; }
+
+     
+        .skip-wrap {
+            text-align: center; margin-top: 22px;
+        }
+        .skip-link {
+            font-size: 12.5px; color: rgba(122,156,196,0.55);
+            text-decoration: none;
+            border-bottom: 1px dashed rgba(122,156,196,0.3);
+            transition: color 0.2s;
+        }
+        .skip-link:hover { color: var(--muted); }
+
+        /* Animations */
+        @keyframes fadein {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes q-enter {
+            from { opacity: 0; transform: translateX(20px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes shake {
+            0%,100% { transform: translateX(0); }
+            25%      { transform: translateX(-8px); }
+            75%      { transform: translateX(8px); }
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 12px;
+                align-items: flex-start;
+                justify-content: flex-start;
+            }
+            .header { margin-bottom: 24px; }
+            .header h1 { font-size: 22px; }
+            .header p { font-size: 12px; }
+            .school-logo { width: 60px; height: 60px; margin-bottom: 12px; }
+
+            .container { max-width: 100%; }
+            .quiz-card {
+                padding: 22px 14px;
+                border-radius: 20px;
+            }
+            .progress-wrap { margin-bottom: 24px; }
+            .progress-label { font-size: 9px; }
+            .progress-pct { font-size: 10px; }
+
+            .q-wrapper { min-height: auto; margin-bottom: 20px; }
+            .q-text { font-size: 18px; margin-bottom: 24px; }
+            
+            .options-grid { grid-template-columns: 1fr; gap: 10px; }
+            .option-card { padding: 14px; border-radius: 14px; }
+            .opt-icon { width: 38px; height: 38px; font-size: 16px; border-radius: 10px; }
+            .opt-label { font-size: 13px; }
+
+            .nav-footer { 
+                flex-direction: column-reverse; 
+                gap: 16px; 
+                margin-top: 30px; 
+            }
+            .btn-nav { width: 100%; justify-content: center; padding: 14px; font-size: 12px; }
+            .dots-wrap { width: 100%; justify-content: center; order: 3; }
+            
+            .btn-prev { order: 2; }
+            .btn-next, .btn-submit { order: 1; }
+            .skip-wrap { margin-top: 18px; }
+            .skip-link { font-size: 12px; }
+        }
+
+        @media (max-width: 420px) {
+            .header h1 { font-size: 20px; }
+            .q-text { font-size: 17px; }
+            .option-card { padding: 13px 12px; }
+            .opt-label { font-size: 12.5px; }
+            .btn-nav { padding: 13px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="deco d1"></div>
+<div class="deco d2"></div>
+<div class="deco d3"></div>
+
+<div class="container">
+
+    <!-- Header -->
+    <div class="header">
+        <div class="school-logo">
+            <img src="/imagenes/logo_donbosco.jpg"
+                 onerror="this.src='https://donboscolatola.edu.ec/wp-content/uploads/2024/01/cropped-LOGO-DON-BOSCO.png';this.onerror=null;"
+                 alt="Don Bosco">
+        </div>
+        <h1>Descubre tu <em>Pasión</em></h1>
+        <p>Responde estas preguntas y te recomendaremos el club ideal para ti</p>
+    </div>
+
+    <!-- Quiz Card -->
+    <div class="quiz-card" id="quizCard">
+
+        <!-- Progress -->
+        <div class="progress-wrap">
+            <div class="progress-meta">
+                <span class="progress-label" id="progressLabel">Cuestionario de Intereses</span>
+                <span class="progress-pct" id="progressPct">0% completado</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="progressFill"></div>
+                <div class="progress-tooltip" id="progressTooltip">Faltan ${preguntas.length} preguntas</div>
+            </div>
+        </div>
+
+        <form action="/guardar_respuestas" method="POST" id="quizForm">
+            <div id="qContainer" class="q-wrapper"></div>
+
+            <div class="nav-footer">
+                <button type="button" class="btn-nav btn-prev" id="prevBtn" disabled>← Anterior</button>
+
+                <div class="dots-wrap" id="dotsWrap"></div>
+
+                <button type="button" class="btn-nav btn-next" id="nextBtn">Siguiente →</button>
+                <button type="submit" class="btn-nav btn-submit" id="submitBtn" style="display:none">
+                    Ver mi recomendación ✨
+                </button>
+            </div>
+        </form>
+
+        <!-- Skip opcional -->
+        <div class="skip-wrap">
+            <a href="/clubes" class="skip-link">Omitir encuesta y ver todos los clubes →</a>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    const preguntas = {{ preguntas | tojson }};
+    let step = 0;
+    let respuestas = new Array(preguntas.length).fill(null);
+
+    const icons = ['✨','🎯','💡','🚀','🔥','💎','🎨','⚡','🌟','🎶'];
+
+    function render() {
+        const q = preguntas[step];
+        const answered = respuestas.filter(r => r !== null).length;
+        const pct = Math.round((answered / preguntas.length) * 100);
+
+        // Progress
+        document.getElementById('progressFill').style.width = pct + '%';
+        document.getElementById('progressPct').textContent = pct + '% completado';
+        
+        const remaining = preguntas.length - answered;
+        document.getElementById('progressTooltip').textContent = remaining > 0 ? `Faltan ${remaining} preguntas` : '¡Casi listo!';
+
+        // Buttons
+        document.getElementById('prevBtn').disabled = step === 0;
+        const isLast = step === preguntas.length - 1;
+        const hasAns = respuestas[step] !== null;
+
+        document.getElementById('nextBtn').style.display   = isLast ? 'none' : 'flex';
+        document.getElementById('submitBtn').style.display = isLast ? 'flex' : 'none';
+        document.getElementById('nextBtn').disabled   = !hasAns;
+        document.getElementById('submitBtn').disabled = !hasAns;
+
+        // Dots
+        const dotsWrap = document.getElementById('dotsWrap');
+        dotsWrap.innerHTML = '';
+        preguntas.forEach((_, i) => {
+            const d = document.createElement('div');
+            d.style.height = '8px';
+            d.style.borderRadius = '10px';
+            d.style.transition = 'all 0.3s';
+            d.style.width = (i === step ? '24px' : '8px');
+            d.style.background = (i === step ? 'var(--gold2)' : (respuestas[i] !== null ? 'rgba(212,160,23,0.5)' : 'rgba(255,255,255,0.1)'));
+            dotsWrap.appendChild(d);
+        });
+
+        // Question
+        const qContainer = document.getElementById('qContainer');
+        qContainer.style.animation = 'none';
+        qContainer.innerHTML = `
+            <div class="q-badge">Pregunta ${step + 1} de ${preguntas.length}</div>
+            <div class="q-text">${q.pregunta}</div>
+            <div class="options-grid">
+                ${q.opciones.map((opt, idx) => `
+                    <div class="option-card ${respuestas[step] == idx ? 'selected' : ''}"
+                         onclick="pick(${idx})">
+                        <div class="opt-icon">${icons[idx % icons.length]}</div>
+                        <div class="opt-label">${opt.texto}</div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        // Trigger animation
+        void qContainer.offsetWidth;
+        qContainer.style.animation = 'q-enter 0.3s ease both';
+    }
+
+    window.pick = function(idx) {
+        const isChanging = respuestas[step] !== null;
+        respuestas[step] = idx;
+        render();
+        
+        // Auto-advance solo si es una selección nueva (no si está editando)
+        if (!isChanging && step < preguntas.length - 1) {
+            setTimeout(() => { 
+                if (respuestas[step] !== null) { // Doble check por si el usuario dio atrás muy rápido
+                    step++; 
+                    render(); 
+                }
+            }, 380);
+        }
+    };
+
+    document.getElementById('prevBtn').onclick = () => { if (step > 0) { step--; render(); } };
+    document.getElementById('nextBtn').onclick = () => {
+        if (respuestas[step] === null) {
+            const c = document.getElementById('quizCard');
+            c.style.animation = 'shake 0.4s ease';
+            setTimeout(() => c.style.animation = '', 400);
+        } else if (step < preguntas.length - 1) { step++; render(); }
+    };
+
+    // Submit → pasar respuestas + redirigir con recomendaciones
+    document.getElementById('quizForm').onsubmit = function(e) {
+        if (respuestas.includes(null)) {
+            e.preventDefault();
+            const c = document.getElementById('quizCard');
+            c.style.animation = 'shake 0.4s ease';
+            setTimeout(() => c.style.animation = '', 400);
+            return;
+        }
+        // Agregar inputs ocultos
+        respuestas.forEach((val, idx) => {
+            const inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = `pregunta_${idx}`;
+            inp.value = val;
+            this.appendChild(inp);
+        });
+        // El backend debe redirigir a /clubes?rec=ID1,ID2,...
+    };
+
+    render();
+</script>
+
+</body>
+</html>

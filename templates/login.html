@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Administrativo — ClubGest</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --db-navy:  #0a1628;
+            --db-blue:  #0d2a5e;
+            --db-gold:  #d4a017;
+            --db-gold2: #f0c040;
+            --db-red:   #c0272d;
+            --db-muted: #7a9cc4;
+            --db-white: #ffffff;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--db-navy);
+            min-height: 100vh;
+            display: flex;
+            align-items: stretch;
+            margin: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .left, .right {
+            min-width: 0;
+        }
+
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, var(--db-red), var(--db-gold), var(--db-gold2), var(--db-gold), var(--db-red));
+            background-size: 300% 100%; animation: glow-line 5s linear infinite;
+            box-shadow: 0 0 20px rgba(212,160,23,0.5); z-index: 9999;
+        }
+        @keyframes glow-line { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+
+        /* Panel izquierdo del login con informaci\u00f3n institucional */
+        .left {
+            flex: 1.1;
+            background: linear-gradient(160deg, var(--db-blue) 0%, var(--db-navy) 65%, #06101f 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 60px 56px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .left .deco-circle-1 {
+            position: absolute;
+            width: 440px; height: 440px;
+            border-radius: 50%;
+            border: 55px solid rgba(212,160,23,0.06);
+            bottom: -130px; left: -110px;
+            pointer-events: none;
+        }
+        .left .deco-circle-2 {
+            position: absolute;
+            width: 280px; height: 280px;
+            border-radius: 50%;
+            border: 40px solid rgba(192,39,45,0.07);
+            top: -70px; right: -50px;
+            pointer-events: none;
+        }
+        .dot-grid {
+            position: absolute; inset: 0;
+            background-image: radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
+            background-size: 28px 28px;
+            pointer-events: none;
+        }
+
+        .left-content { position: relative; z-index: 2; }
+
+        /* Don Bosco 3D Animated Image */
+        .don-bosco-3d {
+            position: absolute;
+            right: -20px;
+            bottom: 40px;
+            width: 380px;
+            height: 380px;
+            z-index: 1;
+            perspective: 1000px;
+            opacity: 0;
+            animation: fadein 0.8s 0.5s forwards, float-don-bosco 6s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .don-bosco-3d img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            filter: drop-shadow(0 20px 40px rgba(0,0,0,0.6));
+            transform-style: preserve-3d;
+            transform: rotateY(-15deg) rotateX(5deg);
+            mask-image: radial-gradient(circle, black 60%, transparent 100%);
+            -webkit-mask-image: radial-gradient(circle, black 60%, transparent 100%);
+        }
+
+        .glow-effect {
+            position: absolute;
+            inset: 20%;
+            background: radial-gradient(circle, rgba(212,160,23,0.15) 0%, transparent 70%);
+            filter: blur(40px);
+            z-index: -1;
+            animation: pulse-glow 4s infinite;
+        }
+
+        @keyframes float-don-bosco {
+            0%, 100% { transform: translateY(0) rotateY(-15deg); }
+            50% { transform: translateY(-20px) rotateY(-10deg); }
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+        }
+
+        .school-brand {
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 48px;
+            opacity: 0; animation: fadein 0.5s 0.1s forwards;
+        }
+        .brand-logo {
+            width: 140px; height: 140px;
+            background: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0; flex-shrink: 0;
+            box-shadow: 0 0 25px rgba(212,160,23,0.5);
+            border: 4px solid var(--db-gold);
+            overflow: hidden;
+            animation: float-logo 4s ease-in-out infinite;
+            position: relative;
+        }
+        .brand-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        }
+        
+        @keyframes float-logo {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+
+        .brand-name {
+            font-family: 'Sora', sans-serif;
+            font-size: 18px; font-weight: 800;
+            color: var(--db-gold2);
+            letter-spacing: 1.5px; text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(212,160,23,0.3);
+        }
+        .brand-tagline { font-size: 14px; color: var(--db-muted); margin-top: 5px; font-weight: 500; }
+
+        /* Headline */
+        .left h1 {
+            font-family: 'Sora', sans-serif;
+            font-size: clamp(28px, 3.2vw, 44px);
+            font-weight: 800; color: var(--db-white);
+            line-height: 1.15; margin-bottom: 14px;
+            opacity: 0; animation: fadein 0.5s 0.2s forwards;
+        }
+        .left h1 em { color: var(--db-gold2); font-style: normal; }
+
+        .left-desc {
+            font-size: 14.5px; color: var(--db-muted);
+            line-height: 1.75; max-width: 380px; margin-bottom: 44px;
+            opacity: 0; animation: fadein 0.5s 0.3s forwards;
+        }
+
+        /* Feature items */
+        .features { display: flex; flex-direction: column; gap: 14px; }
+
+        .feat {
+            display: flex; align-items: center; gap: 14px;
+            opacity: 0; animation: slidein 0.5s forwards;
+        }
+        .feat:nth-child(1) { animation-delay: 0.35s; }
+        .feat:nth-child(2) { animation-delay: 0.50s; }
+        .feat:nth-child(3) { animation-delay: 0.65s; }
+
+        .feat-icon {
+            width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+            background: rgba(212,160,23,0.10);
+            border: 1px solid rgba(212,160,23,0.22);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 19px;
+        }
+        .feat-title {
+            font-family: 'Sora', sans-serif;
+            font-size: 13.5px; font-weight: 700; color: var(--db-white);
+        }
+        .feat-sub { font-size: 12px; color: var(--db-muted); margin-top: 2px; }
+
+        /*   PANEL */
+        .right {
+            width: 460px; flex-shrink: 0;
+            background: #0d1e36;
+            display: flex; flex-direction: column;
+            justify-content: center;
+            padding: 56px 48px;
+            position: relative;
+            border-left: 1px solid rgba(255,255,255,0.055);
+            opacity: 0; animation: fadein 0.5s 0.15s forwards;
+            transition: all 0.4s ease;
+        }
+        .right:hover {
+            background: #0f233f;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.3);
+        }
+
+        
+        .right::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--db-red), var(--db-gold), var(--db-gold2));
+        }
+
+        .right-logo-container {
+            width: 140px; height: 140px;
+            background: white; border-radius: 50%; /* Cambiado a circular */
+            display: flex; align-items: center; justify-content: center;
+            padding: 0; margin: 0 auto 30px;
+            border: 4px solid var(--db-gold);
+            box-shadow: 0 0 25px rgba(212, 160, 23, 0.5); /* Brillo dorado */
+            position: relative;
+            overflow: hidden; /* Asegurar que la imagen llene el círculo */
+        }
+        .right-logo-container img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; /* Cambiado a cover para llenar el marco */
+        }
+
+        .right-title {
+            font-family: 'Sora', sans-serif;
+            font-size: 25px; font-weight: 800;
+            color: var(--db-white); text-align: center; margin-bottom: 5px;
+        }
+        .right-sub {
+            font-size: 13px; color: var(--db-muted);
+            text-align: center; margin-bottom: 34px;
+        }
+
+        /* Flash error */
+        .flash-error {
+            background: rgba(192,39,45,0.12);
+            border: 1px solid rgba(192,39,45,0.35);
+            color: #ff8888;
+            padding: 11px 15px; border-radius: 10px;
+            font-size: 13px; margin-bottom: 18px;
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        /* Fields */
+        .field { margin-bottom: 18px; }
+        .field-label {
+            display: block;
+            font-size: 10.5px; font-weight: 600;
+            color: var(--db-muted); letter-spacing: 1.5px;
+            text-transform: uppercase; margin-bottom: 8px;
+        }
+        .input-wrap { position: relative; }
+        .input-icon {
+            position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+            font-size: 18px; color: var(--db-muted);
+        }
+
+        input {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 14px 16px 14px 48px; border-radius: 12px;
+            color: white; font-family: 'DM Sans', sans-serif; font-size: 15px;
+            transition: all 0.2s; outline: none;
+        }
+        input:focus {
+            background: rgba(255,255,255,0.07);
+            border-color: var(--db-gold);
+            box-shadow: 0 0 0 4px rgba(212,160,23,0.1);
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: linear-gradient(135deg, var(--db-gold), var(--db-gold2));
+            border: none;
+            color: var(--db-navy);
+            padding: 18px;
+            border-radius: 14px;
+            font-family: 'Sora', sans-serif;
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 8px 25px rgba(212,160,23,0.3);
+            position: relative; overflow: hidden;
+        }
+        .btn-submit::after {
+            content: ''; position: absolute; top: -50%; left: -100%; width: 100%; height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: rotate(25deg); transition: none;
+        }
+        .btn-submit:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(212,160,23,0.5), 0 0 20px rgba(212,160,23,0.2);
+        }
+        .btn-submit:hover::after { animation: shimmer 1.5s infinite; }
+
+        @keyframes shimmer { 0% { left: -100%; } 100% { left: 100%; } }
+
+        .back-link {
+            display: block; text-align: center; margin-top: 32px;
+            color: var(--db-muted); text-decoration: none;
+            font-size: 14px; transition: color 0.2s;
+        }
+        .back-link:hover { color: white; }
+
+        @keyframes fadein {
+            from { opacity: 0; transform: translateY(15px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slidein {
+            from { opacity: 0; transform: translateX(-20px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        @media (max-width: 1100px) {
+            .left {
+                padding: 48px 40px;
+            }
+
+            .right {
+                width: 420px;
+                padding: 48px 36px;
+            }
+
+            .brand-logo,
+            .right-logo-container {
+                width: 120px;
+                height: 120px;
+            }
+
+            .don-bosco-3d {
+                width: 280px;
+                height: 280px;
+                right: -40px;
+                bottom: 18px;
+                opacity: 0.22;
+            }
+        }
+
+        @media (max-width: 900px) {
+            body {
+                display: block;
+            }
+
+            .left,
+            .right {
+                width: 100%;
+            }
+
+            .left {
+                padding: 34px 20px 28px;
+            }
+
+            .left-content {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .school-brand {
+                margin-bottom: 28px;
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
+            }
+
+            .left-desc {
+                max-width: 540px;
+                margin-bottom: 28px;
+            }
+
+            .features {
+                width: 100%;
+                max-width: 560px;
+            }
+
+            .right {
+                border-left: none;
+                border-top: 1px solid rgba(255,255,255,0.055);
+                padding: 36px 24px 40px;
+            }
+
+            .don-bosco-3d {
+                position: relative;
+                right: auto;
+                bottom: auto;
+                width: min(280px, 70vw);
+                height: min(280px, 70vw);
+                margin: 6px auto 0;
+                opacity: 0.9;
+                animation: fadein 0.8s 0.5s forwards, float-don-bosco 6s ease-in-out infinite;
+            }
+
+            .don-bosco-3d img {
+                transform: rotateY(-10deg) rotateX(4deg);
+            }
+        }
+
+        @media (max-width: 560px) {
+            body::before {
+                height: 3px;
+            }
+
+            .left {
+                padding: 28px 16px 22px;
+            }
+
+            .right {
+                padding: 30px 16px 34px;
+            }
+
+            .brand-logo,
+            .right-logo-container {
+                width: 96px;
+                height: 96px;
+            }
+
+            .left h1 {
+                font-size: 28px;
+            }
+
+            .left-desc {
+                font-size: 13px;
+                line-height: 1.65;
+                margin-bottom: 22px;
+            }
+
+            .feat {
+                gap: 12px;
+            }
+
+            .feat-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 17px;
+            }
+
+            .feat-title {
+                font-size: 13px;
+            }
+
+            .feat-sub {
+                font-size: 11.5px;
+            }
+
+            .right-title {
+                font-size: 22px;
+            }
+
+            .right-sub {
+                margin-bottom: 26px;
+            }
+
+            input {
+                font-size: 14px;
+            }
+
+            .don-bosco-3d {
+                width: min(220px, 72vw);
+                height: min(220px, 72vw);
+                margin-top: 2px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══ LEFT ══ -->
+<div class="left">
+    <div class="dot-grid"></div>
+    <div class="deco-circle-1"></div>
+    <div class="deco-circle-2"></div>
+
+    <div class="left-content">
+
+        <div class="school-brand">
+            <div class="brand-logo">
+                <img src="/imagenes/donbosco_Animado.jpg" 
+                     onerror="this.src='https://donboscolatola.edu.ec/wp-content/uploads/2024/01/cropped-LOGO-DON-BOSCO.png';this.onerror=null;"
+                     alt="Don Bosco Logo">
+            </div>
+            <div>
+                <div class="brand-name">UNIDAD EDUCATIVA FISCOMISIONAL SALESIANA</div>
+                 <div class="brand-tagline">Don Bosco La Tola</div>
+            </div>
+        </div>
+
+        <h1>¡Bienvenido a<br><em>ClubGest!</em></h1>
+
+        <p class="left-desc">
+            Sistema de gestión profesional para el control
+            de clubes estudiantiles e inscripciones de la
+            Unidad Educativa Fiscomisional Salesiana Don Bosco La Tola, Quito.
+        </p>
+
+        <div class="features">
+            <div class="feat">
+                <div class="feat-icon">🏆</div>
+                <div>
+                    <div class="feat-title">Gestión de Clubes</div>
+                    <div class="feat-sub">Crea, activa y administra clubes por nivel</div>
+                </div>
+            </div>
+            <div class="feat">
+                <div class="feat-icon">👥</div>
+                <div>
+                    <div class="feat-title">Inscripciones</div>
+                    <div class="feat-sub">Control de cupos y estudiantes inscritos</div>
+                </div>
+            </div>
+            <div class="feat">
+                <div class="feat-icon">📊</div>
+                <div>
+                    <div class="feat-title">Reportes y Estadísticas</div>
+                    <div class="feat-sub">Dashboard en tiempo real por nivel y club</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<div class="right">
+
+    <div class="right-logo-container">
+        <img src="/imagenes/logo_donbosco.jpg"
+             onerror="this.src='https://donboscolatola.edu.ec/wp-content/uploads/2024/01/cropped-LOGO-DON-BOSCO.png';this.onerror=null;"
+             alt="Don Bosco Logo">
+    </div>
+
+    <h2 class="right-title">Iniciar Sesión</h2>
+    <p class="right-sub">Accede al panel administrativo</p>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for msg in messages %}
+                <div class="flash-error">⚠ {{ msg }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        <div class="field">
+            <label class="field-label" for="usuario">Usuario</label>
+            <div class="input-wrap">
+                <span class="input-icon">👤</span>
+                <input type="text" id="usuario" name="usuario"
+                       placeholder="Ingresa tu usuario" required autocomplete="username">
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="field-label" for="password">Contraseña</label>
+            <div class="input-wrap">
+                <span class="input-icon">🔒</span>
+                <input type="password" id="password" name="password"
+                       placeholder="••••••••" required autocomplete="current-password">
+            </div>
+        </div>
+
+        <button type="submit" class="btn-submit">Entrar al Sistema →</button>
+    </form>
+
+    <a href="/" class="back-link">← Volver al inicio</a>
+</div>
+
+</body>
+</html>

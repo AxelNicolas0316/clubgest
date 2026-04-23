@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selecciona tu Club — ClubGest</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --navy:   #0a1628;
+            --blue:   #0d2a5e;
+            --gold:   #d4a017;
+            --gold2:  #f0c040;
+            --red:    #c0272d;
+            --muted:  #7a9cc4;
+            --white:  #ffffff;
+            --card:   #0d1e38;
+            --border: rgba(255,255,255,0.07);
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--navy);
+            color: var(--white);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--red), var(--gold), var(--gold2), var(--gold), var(--red));
+            background-size: 300% 100%; animation: glow-line 5s linear infinite;
+            box-shadow: 0 0 15px rgba(212,160,23,0.4); z-index: 9999;
+        }
+        @keyframes glow-line { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+
+        /* Fondo y estilos generales de la página */
+        .bg-grid {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(212,160,23,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(212,160,23,0.025) 1px, transparent 1px);
+            background-size: 48px 48px;
+        }
+        .orb {
+            position: fixed; border-radius: 50%; pointer-events: none; z-index: 0;
+        }
+        .orb1 { width: 600px; height: 600px; top: -200px; right: -150px;
+                background: radial-gradient(circle, rgba(13,42,94,0.55) 0%, transparent 70%); }
+        .orb2 { width: 450px; height: 450px; bottom: -120px; left: -100px;
+                background: radial-gradient(circle, rgba(192,39,45,0.09) 0%, transparent 70%); }
+        .orb3 { width: 350px; height: 350px; top: 50%; left: 50%; transform: translate(-50%,-50%);
+                background: radial-gradient(circle, rgba(13,42,94,0.3) 0%, transparent 70%); }
+
+        /* Área principal de contenido */
+        .page {
+            position: relative; z-index: 1;
+            max-width: 1280px; margin: 0 auto;
+            padding: 44px 32px 100px;
+        }
+
+        /* Encabezado con título e información principal de la página */
+        .page-header {
+            text-align: center; margin-bottom: 44px;
+            animation: fadein 0.5s ease both;
+        }
+        .page-header h1 {
+            font-family: 'Sora', sans-serif;
+            font-size: clamp(26px, 4vw, 40px); font-weight: 800;
+            background: linear-gradient(90deg, var(--white) 30%, var(--gold2));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; margin-bottom: 10px;
+        }
+        .page-header p { font-size: 14.5px; color: var(--muted); }
+
+        /* Banner que destaca los clubes recomendados para el estudiante */
+        .rec-banner {
+            display: none;
+            background: linear-gradient(135deg, rgba(212,160,23,0.08), rgba(13,42,94,0.3));
+            border: 1px solid rgba(212,160,23,0.3);
+            border-radius: 18px; padding: 20px 28px;
+            margin-bottom: 32px;
+            position: relative; overflow: hidden;
+        }
+        .rec-banner::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--gold2), transparent);
+        }
+        .rec-banner.visible { display: block; animation: fadein 0.4s ease both; }
+        .rec-banner-title {
+            font-family: 'Sora', sans-serif; font-size: 12px; font-weight: 700;
+            color: var(--gold2); letter-spacing: 2px; text-transform: uppercase;
+            margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+        }
+        .rec-chips { display: flex; gap: 10px; flex-wrap: wrap; }
+        .rec-chip {
+            display: flex; align-items: center; gap: 7px;
+            background: rgba(212,160,23,0.12); border: 1px solid rgba(212,160,23,0.3);
+            border-radius: 50px; padding: 6px 14px;
+            font-size: 13px; font-weight: 700; color: var(--gold2);
+        }
+
+        /* Mascota animada de la página */
+        .mascot-section {
+            display: flex; justify-content: center; margin-bottom: 48px;
+            animation: fadein 0.6s 0.15s ease both;
+        }
+        .mascot-wrap { display: flex; align-items: flex-end; gap: 4px; }
+
+        .bubble {
+            background: white; border-radius: 22px 22px 22px 6px;
+            padding: 18px 22px; max-width: 290px;
+            box-shadow: 0 10px 36px rgba(0,0,0,0.4);
+            margin-bottom: 14px; position: relative; cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .bubble:hover { transform: translateY(-4px); box-shadow: 0 16px 44px rgba(0,0,0,0.5); }
+        .bubble::after {
+            content: ''; position: absolute; bottom: -10px; left: 22px;
+            border-left: 10px solid transparent; border-right: 10px solid transparent;
+            border-top: 10px solid white;
+        }
+        .bubble-text {
+            font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 700;
+            line-height: 1.55; color: #0a1628; margin-bottom: 12px;
+        }
+        .bubble-text em { color: var(--red); font-style: normal; }
+        .bubble-cta {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: linear-gradient(135deg, var(--gold), var(--gold2));
+            color: #0a1628; font-size: 12px; font-weight: 800;
+            font-family: 'Sora', sans-serif;
+            padding: 8px 15px; border-radius: 9px; text-decoration: none;
+            animation: pulse-cta 2s ease-in-out infinite;
+        }
+        @keyframes pulse-cta {
+            0%,100% { box-shadow: 0 0 0 0 rgba(212,160,23,0.5); }
+            50%      { box-shadow: 0 0 0 6px rgba(212,160,23,0); }
+        }
+
+        .db-char {
+            width: 108px; flex-shrink: 0;
+            animation: db-float 3.2s ease-in-out infinite;
+        }
+        @keyframes db-float {
+            0%,100% { transform: translateY(0); }
+            50%      { transform: translateY(-12px); }
+        }
+
+        /* Línea divisoria entre secciónes */
+        .divider {
+            display: flex; align-items: center; gap: 16px; margin-bottom: 32px;
+            animation: fadein 0.5s 0.2s ease both;
+        }
+        .divider::before, .divider::after {
+            content: ''; flex: 1; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(212,160,23,0.35), transparent);
+        }
+        .divider span {
+            font-family: 'Sora', sans-serif; font-size: 10.5px; font-weight: 700;
+            letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted);
+            white-space: nowrap;
+        }
+
+        /* Estilos para la grilla de tarjetas de clubes disponibles */
+        .club-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 22px; margin-bottom: 48px;
+        }
+
+        .club-option { cursor: pointer; height: 100%; }
+        .club-option input[type="radio"] { display: none; }
+
+        /* The card */
+        .club-card {
+            background: var(--card);
+            border-radius: 22px;
+            border: 1.5px solid rgba(255,255,255,0.07);
+            overflow: hidden;
+            height: 100%;
+            display: flex; flex-direction: column;
+            position: relative;
+            transition: transform 0.28s cubic-bezier(0.4,0,0.2,1),
+                        border-color 0.28s,
+                        box-shadow 0.28s;
+        }
+
+        /* Animated border glow on hover */
+        .club-card::before {
+            content: '';
+            position: absolute; inset: -1px;
+            border-radius: 22px;
+            background: linear-gradient(135deg,
+                rgba(212,160,23,0) 0%,
+                rgba(212,160,23,0.6) 50%,
+                rgba(192,39,45,0.4) 100%);
+            z-index: 0; opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .club-card::after {
+            content: '';
+            position: absolute; inset: 1.5px;
+            border-radius: 21px;
+            background: var(--card);
+            z-index: 1;
+        }
+
+        .club-card:hover:not(.disabled) {
+            transform: translateY(-7px);
+            box-shadow: 
+                0 20px 50px rgba(0,0,0,0.45),
+                0 0 30px rgba(212, 160, 23, 0.4); /* Brillo dorado al rededor */
+            border-color: var(--gold);
+        }
+        .club-card:hover:not(.disabled) .club-name {
+            text-shadow: 0 0 10px rgba(212, 160, 23, 0.8); /* Brillo en el nombre */
+            color: var(--gold2);
+        }
+        .club-card:hover:not(.disabled)::before { opacity: 1; }
+
+        /* Selected state */
+        .club-option input:checked + .club-card {
+            border-color: var(--gold2);
+            box-shadow: 
+                0 0 0 3px rgba(212, 160, 23, 0.2),
+                0 20px 50px rgba(0,0,0,0.5),
+                0 0 40px rgba(212, 160, 23, 0.6); /* Brillo más intenso al seleccionar */
+        }
+        .club-option input:checked + .club-card .club-name {
+            text-shadow: 0 0 15px rgba(212, 160, 23, 1); /* Brillo máximo en el nombre */
+            color: var(--gold2);
+        }
+        .club-option input:checked + .club-card::before { opacity: 1; }
+
+        /* Disabled */
+        .club-card.disabled { opacity: 0.5; cursor: not-allowed; }
+        .club-card.disabled:hover { transform: none; box-shadow: none; }
+        .club-card.disabled::before { display: none; }
+
+        /* All inner content needs z-index > ::after */
+        .card-inner { position: relative; z-index: 2; display: flex; flex-direction: column; height: 100%; }
+
+        /* Área de la imagen del club en la tarjeta */
+        .card-img {
+            width: 100%; height: 175px;
+            overflow: hidden; position: relative; flex-shrink: 0;
+        }
+        .card-img img {
+            width: 100%; height: 100%; object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        .club-card:hover:not(.disabled) .card-img img { transform: scale(1.06); }
+
+        /* Image overlay gradient */
+        .card-img::after {
+            content: '';
+            position: absolute; bottom: 0; left: 0; right: 0; height: 70%;
+            background: linear-gradient(to top, var(--card) 0%, transparent 100%);
+        }
+
+        /* No image — show icon placeholder */
+        .card-img-placeholder {
+            width: 100%; height: 140px;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, rgba(13,42,94,0.8), rgba(10,22,40,0.9));
+            font-size: 52px; flex-shrink: 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* Marca de selección en el club elegido por el estudiante */
+        .check-mark {
+            display: none;
+            position: absolute; top: 14px; right: 14px; z-index: 10;
+            width: 30px; height: 30px; border-radius: 50%;
+            background: var(--gold2); color: var(--navy);
+            font-size: 15px; font-weight: 900;
+            align-items: center; justify-content: center;
+            box-shadow: 0 4px 12px rgba(212,160,23,0.5);
+        }
+        .club-option input:checked ~ .card-inner .check-mark,
+        .club-option input:checked + .club-card .check-mark { display: flex; }
+
+        /* Distintivo que muestra que el club fue recomendado */
+        .rec-badge {
+            display: none;
+            position: absolute; top: 14px; left: 14px; z-index: 10;
+            background: linear-gradient(135deg, var(--gold), var(--gold2));
+            color: var(--navy); font-size: 10px; font-weight: 800;
+            letter-spacing: 1px; text-transform: uppercase;
+            padding: 4px 11px; border-radius: 50px;
+            box-shadow: 0 4px 14px rgba(212,160,23,0.4);
+        }
+        .club-card.recommended .rec-badge { display: block; }
+
+        /* Contenido principal de la tarjeta del club */
+        .card-body {
+            padding: 18px 20px 20px;
+            display: flex; flex-direction: column; flex: 1;
+        }
+
+        .card-title {
+            font-family: 'Sora', sans-serif;
+            font-size: 20px; font-weight: 800; color: var(--white);
+            margin-bottom: 8px; line-height: 1.2;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.4), 0 0 30px rgba(212, 160, 23, 0.2);
+            letter-spacing: -0.5px;
+        }
+
+        .card-desc {
+            font-size: 12.5px; color: rgba(122,156,196,0.85);
+            line-height: 1.6; margin-bottom: 16px;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            flex-grow: 1;
+        }
+
+        /* Estadísticas del club (integrantes, actividades, etc.) */
+        .card-stats {
+            background: rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.055);
+            border-radius: 13px; padding: 13px 15px;
+            display: flex; flex-direction: column; gap: 0;
+        }
+
+        .stat-row {
+            display: flex; align-items: center;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+        .stat-row + .stat-row {
+            border-top: 1px solid rgba(255,255,255,0.05);
+            margin-top: 4px; padding-top: 8px;
+        }
+
+        .stat-label {
+            display: flex; align-items: center; gap: 7px;
+            font-size: 12px; color: var(--muted);
+        }
+        .stat-label span { font-size: 14px; }
+
+        .stat-value {
+            font-size: 13px; font-weight: 700; color: var(--gold2);
+            font-family: 'Sora', sans-serif;
+        }
+        .stat-value.white { color: var(--white); }
+
+        /* Cupo progress */
+        .cupo-wrap { margin-top: 10px; }
+        .cupo-numbers {
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: var(--muted); margin-bottom: 6px;
+        }
+        .cupo-numbers strong { color: var(--white); font-weight: 700; }
+        .cupo-track {
+            height: 5px; background: rgba(255,255,255,0.07);
+            border-radius: 4px; overflow: hidden;
+        }
+        .cupo-fill {
+            height: 100%; border-radius: 4px;
+            background: linear-gradient(90deg, var(--gold), var(--gold2));
+            transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
+            box-shadow: 0 0 8px rgba(212,160,23,0.4);
+        }
+        .cupo-fill.warning { background: linear-gradient(90deg, #f59e0b, #fbbf24); box-shadow: 0 0 8px rgba(245,158,11,0.4); }
+        .cupo-fill.danger  { background: linear-gradient(90deg, #c0272d, #ef4444); box-shadow: 0 0 8px rgba(192,39,45,0.5); }
+
+        /* Full club message */
+        .club-full-msg {
+            margin-top: 12px;
+            background: rgba(192,39,45,0.1);
+            border: 1px solid rgba(192,39,45,0.25);
+            border-radius: 9px; padding: 9px 14px;
+            text-align: center;
+            font-size: 12px; font-weight: 700; color: #ff8888;
+        }
+
+        /* Botón para confirmar la elección del club */
+        .confirm-wrap {
+            position: sticky; bottom: 30px; left: 0; right: 0;
+            display: flex; justify-content: center; z-index: 100;
+            padding: 20px; pointer-events: none;
+            animation: fadein 0.5s 0.35s ease both;
+        }
+
+        .btn-confirm {
+            pointer-events: auto;
+            display: inline-flex; align-items: center; gap: 12px;
+            background: linear-gradient(135deg, var(--gold), var(--gold2));
+            color: var(--navy); border: none;
+            padding: 18px 44px; border-radius: 16px;
+            font-family: 'Sora', sans-serif; font-size: 16px; font-weight: 800;
+            cursor: pointer; position: relative; overflow: hidden;
+            box-shadow: 0 15px 45px rgba(0,0,0,0.5), 0 0 25px rgba(212,160,23,0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        .btn-confirm::after {
+            content: ''; position: absolute; top: -50%; left: -100%; width: 100%; height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: rotate(25deg); transition: none;
+        }
+
+        .btn-confirm:hover:not(:disabled) {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 20px 55px rgba(0,0,0,0.6), 0 0 35px rgba(212,160,23,0.5);
+        }
+        .btn-confirm:hover:not(:disabled)::after { animation: shimmer 1.5s infinite; }
+
+        .btn-confirm:disabled {
+            background: #2a2a3a; color: rgba(255,255,255,0.15);
+            cursor: not-allowed; box-shadow: none;
+        }
+
+        @keyframes shimmer { 0% { left: -100%; } 100% { left: 100%; } }
+
+        /* Mensaje cuando no hay clubes disponibles */
+        .empty-state {
+            text-align: center; padding: 70px 20px;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 22px;
+        }
+        .empty-state .empty-icon { font-size: 52px; display: block; margin-bottom: 18px; }
+        .empty-state h3 { font-family: 'Sora', sans-serif; font-size: 20px; margin-bottom: 10px; }
+        .empty-state p { color: var(--muted); font-size: 14px; }
+
+        /* Animaciones de transición y efectos visuales */
+        @keyframes fadein {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .club-grid .club-option { animation: fadein 0.45s ease both; }
+        .club-grid .club-option:nth-child(1) { animation-delay: 0.05s; }
+        .club-grid .club-option:nth-child(2) { animation-delay: 0.10s; }
+        .club-grid .club-option:nth-child(3) { animation-delay: 0.15s; }
+        .club-grid .club-option:nth-child(4) { animation-delay: 0.20s; }
+        .club-grid .club-option:nth-child(5) { animation-delay: 0.25s; }
+        .club-grid .club-option:nth-child(6) { animation-delay: 0.30s; }
+
+        /* Estilos adaptables para pantallas más pequeñas */
+        @media (max-width: 700px) {
+            .page { padding: 28px 16px 96px; }
+            .page-header { margin-bottom: 30px; }
+            .page-header h1 { font-size: 28px; }
+            .page-header p { font-size: 13px; }
+
+            .club-grid { grid-template-columns: 1fr; gap: 18px; }
+            .mascot-section { margin-bottom: 34px; }
+            .mascot-wrap {
+                flex-direction: column;
+                align-items: center;
+                gap: 12px;
+            }
+            .bubble {
+                border-radius: 16px;
+                margin-bottom: 0;
+                max-width: 100%;
+                width: 100%;
+            }
+            .bubble::after { display: none; }
+            .db-char {
+                display: block;
+                width: 86px;
+                margin-top: -2px;
+            }
+
+            .confirm-wrap {
+                position: static;
+                padding: 14px 0 0;
+            }
+
+            .btn-confirm {
+                width: 100%;
+                justify-content: center;
+                padding: 16px 18px;
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .page { padding: 24px 14px 88px; }
+            .page-header h1 { font-size: 24px; }
+            .mascot-section { margin-bottom: 28px; }
+            .bubble-text { font-size: 12px; }
+            .bubble-cta { width: 100%; justify-content: center; }
+            .db-char { width: 76px; }
+            .club-card { border-radius: 18px; }
+            .card-img { height: 148px; }
+            .card-body { padding: 16px 16px 18px; }
+            .card-title { font-size: 18px; }
+            .card-desc { font-size: 12px; }
+            .card-stats { padding: 12px 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<div class="page">
+
+    <!-- HEADER -->
+    <div class="page-header" style="animation: fadein 0.4s ease both;">
+        <h1>Selecciona tu Club</h1>
+        <p>Elige el club de tu preferencia para este periodo académico</p>
+    </div>
+
+    <!-- RECOMMENDED BANNER -->
+    <div class="rec-banner" id="recBanner">
+        <div class="rec-banner-title">⭐ Clubs recomendados para ti</div>
+        <div class="rec-chips" id="recChips"></div>
+    </div>
+
+    <!-- DON BOSCO MASCOT -->
+    <div class="mascot-section">
+        <div class="mascot-wrap">
+            <div class="bubble" onclick="window.location='/cuestionario'">
+                <div class="bubble-text">
+                    ¿<em>No sabes</em> qué club elegir?<br>
+                    ¡Tranquilo, yo te ayudo! 😊
+                </div>
+                <a href="/cuestionario" class="bubble-cta">✨ Hacer encuesta rápida</a>
+            </div>
+
+            <div class="db-char">
+                <svg width="108" height="158" viewBox="0 0 110 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="55" cy="130" rx="32" ry="28" fill="#1a1a2e"/>
+                    <rect x="26" y="95" width="58" height="55" rx="10" fill="#1a1a2e"/>
+                    <rect x="44" y="90" width="22" height="14" rx="4" fill="white"/>
+                    <rect x="53" y="96" width="4" height="12" rx="2" fill="#f0c040"/>
+                    <rect x="49" y="101" width="12" height="3" rx="1.5" fill="#f0c040"/>
+                    <ellipse cx="55" cy="68" rx="22" ry="24" fill="#f5c5a0"/>
+                    <ellipse cx="55" cy="48" rx="22" ry="10" fill="#3b2a1a"/>
+                    <ellipse cx="34" cy="60" rx="7" ry="12" fill="#3b2a1a"/>
+                    <ellipse cx="76" cy="60" rx="7" ry="12" fill="#3b2a1a"/>
+                    <ellipse cx="46" cy="68" rx="4" ry="4.5" fill="white"/>
+                    <ellipse cx="64" cy="68" rx="4" ry="4.5" fill="white"/>
+                    <circle cx="47" cy="69" r="2.5" fill="#2c1a0e"/>
+                    <circle cx="65" cy="69" r="2.5" fill="#2c1a0e"/>
+                    <circle cx="48" cy="68" r="1" fill="white"/>
+                    <circle cx="66" cy="68" r="1" fill="white"/>
+                    <path d="M42 62 Q46 60 50 62" stroke="#3b2a1a" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+                    <path d="M60 62 Q64 60 68 62" stroke="#3b2a1a" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+                    <ellipse cx="55" cy="74" rx="3" ry="2" fill="#e8a882"/>
+                    <path d="M46 80 Q55 88 64 80" stroke="#c47a50" stroke-width="2" stroke-linecap="round" fill="none"/>
+                    <ellipse cx="40" cy="76" rx="5" ry="3" fill="#f09980" opacity="0.55"/>
+                    <ellipse cx="70" cy="76" rx="5" ry="3" fill="#f09980" opacity="0.55"/>
+                    <ellipse cx="88" cy="100" rx="9" ry="10" fill="#f5c5a0"/>
+                    <rect x="82" y="92" width="12" height="18" rx="6" fill="#1a1a2e"/>
+                    <ellipse cx="84" cy="91" rx="3" ry="4" fill="#f5c5a0"/>
+                    <ellipse cx="88" cy="89" rx="3" ry="4.5" fill="#f5c5a0"/>
+                    <ellipse cx="93" cy="91" rx="3" ry="4" fill="#f5c5a0"/>
+                    <ellipse cx="55" cy="46" rx="24" ry="5" fill="none" stroke="#f0c040" stroke-width="1.5" opacity="0.45"/>
+                    <rect x="16" y="105" width="14" height="18" rx="3" fill="#c0272d"/>
+                    <rect x="17" y="106" width="12" height="16" rx="2" fill="#e03a40"/>
+                    <line x1="23" y1="108" x2="23" y2="120" stroke="white" stroke-width="0.8" opacity="0.5"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- DIVIDER -->
+    <div class="divider">
+        <span>Clubes disponibles para tu nivel</span>
+    </div>
+
+    {% if disponible %}
+    <form action="/inscribir_club" method="POST" id="clubForm">
+        <div class="club-grid" id="clubGrid">
+            {% for club in clubes %}
+
+            {% set icons = ['⚽','🏀','🎨','💻','🎵','🔬','📷','🎭','📚','🌿','🤖','♟️','🥊','🎯','🏊','✏️','🎬','🌍'] %}
+            {% set pct = ((club.cupo_maximo - club.cupos_restantes) / club.cupo_maximo * 100) | int if club.cupo_maximo > 0 else 0 %}
+
+            <label class="club-option">
+                <input type="radio" name="club" value="{{ club.id_club }}"
+                       required {% if club.cupos_restantes <= 0 %}disabled{% endif %}
+                       data-nombre="{{ club.nombre_club }}">
+
+                <div class="club-card {% if club.cupos_restantes <= 0 %}disabled{% endif %}"
+                     data-id="{{ club.id_club }}">
+
+                    <div class="card-inner">
+
+                        <!-- Badges flotantes -->
+                        <div class="rec-badge">⭐ Recomendado</div>
+                        <div class="check-mark">✓</div>
+
+                        <!-- IMAGEN o PLACEHOLDER -->
+                        {% if club.imagen %}
+                        <div class="card-img">
+                            <img src="{{ url_for('static', filename='uploads/clubes/' + club.imagen) }}"
+                                 alt="{{ club.nombre_club }}">
+                        </div>
+                        {% else %}
+                        <div class="card-img-placeholder">
+                            {{ icons[loop.index0 % 18] }}
+                        </div>
+                        {% endif %}
+
+                        <!-- BODY -->
+                        <div class="card-body">
+
+                            <!-- Título -->
+                            <div class="card-title">{{ club.nombre_club }}</div>
+
+                            <!-- Descripción -->
+                            {% if club.descripcion %}
+                            <p class="card-desc">{{ club.descripcion }}</p>
+                            {% else %}
+                            <p class="card-desc" style="-webkit-line-clamp:1; opacity:0.4;">
+                                Sin descripción disponible
+                            </p>
+                            {% endif %}
+
+                            <!-- Stats -->
+                            <div class="card-stats">
+
+                                <!-- Tutor -->
+                                <div class="stat-row">
+                                    <div class="stat-label">
+                                        <span>👨‍🏫</span> Tutor responsable
+                                    </div>
+                                    <div class="stat-value">
+                                        {{ club.tutor if club.tutor else 'Por asignar' }}
+                                    </div>
+                                </div>
+
+                                <!-- Inscritos -->
+                                <div class="stat-row">
+                                    <div class="stat-label">
+                                        <span>👥</span> Inscritos
+                                    </div>
+                                    <div class="stat-value white">{{ club.inscritos }}</div>
+                                </div>
+
+                                <!-- Barra de cupos -->
+                                <div class="cupo-wrap">
+                                    <div class="cupo-numbers">
+                                        <span>📊 Cupos disponibles</span>
+                                        <span>
+                                            <strong>{{ club.cupos_restantes }}</strong>
+                                            de {{ club.cupo_maximo }}
+                                        </span>
+                                    </div>
+                                    <div class="cupo-track">
+                                        <div class="cupo-fill {% if pct >= 80 %}danger{% elif pct >= 60 %}warning{% endif %}"
+                                             style="width: {{ pct }}%"></div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <!-- Club lleno -->
+                            {% if club.cupos_restantes <= 0 %}
+                            <div class="club-full-msg">🔒 Club lleno, pero puedes escoger otro 😊</div>
+                            {% endif %}
+
+                        </div>
+                    </div>
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+
+        <div class="confirm-wrap">
+            <button type="submit" class="btn-confirm" id="confirmBtn" disabled>
+                <span>✦</span> Confirmar Inscripción →
+            </button>
+        </div>
+    </form>
+
+    {% else %}
+    <div class="empty-state">
+        <span class="empty-icon">😔</span>
+        <h3>No hay clubes disponibles</h3>
+        <p>Todos los clubes de tu nivel están llenos en este momento.</p>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    // Habilitar botón
+    const radios = document.querySelectorAll('input[name="club"]');
+    const confirmBtn = document.getElementById('confirmBtn');
+    if (radios.length && confirmBtn) {
+        radios.forEach(r => r.addEventListener('change', () => {
+            confirmBtn.disabled = false;
+        }));
+    }
+
+    // Recomendaciones desde URL ?rec=1,2,3
+    const params = new URLSearchParams(window.location.search);
+    const recParam = params.get('rec');
+
+    if (recParam) {
+        const recIds = recParam.split(',').map(Number);
+        const banner = document.getElementById('recBanner');
+        const chips  = document.getElementById('recChips');
+
+        recIds.forEach(id => {
+            const card = document.querySelector(`.club-card[data-id="${id}"]`);
+            if (card) {
+                card.classList.add('recommended');
+                const label = card.closest('label');
+                const grid  = document.getElementById('clubGrid');
+                if (label && grid) grid.prepend(label);
+            }
+            const radio = document.querySelector(`input[value="${id}"]`);
+            if (radio) {
+                const chip = document.createElement('div');
+                chip.className = 'rec-chip';
+                chip.innerHTML = `<span>⭐</span>${radio.getAttribute('data-nombre')}`;
+                chips.appendChild(chip);
+            }
+        });
+
+        if (chips.children.length) {
+            banner.classList.add('visible');
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+</script>
+
+</body>
+</html>

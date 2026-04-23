@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClubGest — Don Bosco La Tola</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800;900&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --navy:  #060e1c;
+            --blue:  #0d2a5e;
+            --gold:  #d4a017;
+            --gold2: #f0c040;
+            --gold3: #ffe080;
+            --red:   #c0272d;
+            --muted: #7a9cc4;
+            --white: #ffffff;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            font-family: 'DM Sans', sans-serif;
+            background: var(--navy);
+            color: var(--white);
+            cursor: none; /* custom cursor */
+        }
+
+        /* ══ CUSTOM CURSOR ══ */
+        .cursor-dot {
+            position: fixed; z-index: 9999; pointer-events: none;
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--gold2);
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s;
+        }
+        .cursor-ring {
+            position: fixed; z-index: 9998; pointer-events: none;
+            width: 36px; height: 36px; border-radius: 50%;
+            border: 1.5px solid rgba(240,192,64,0.5);
+            transform: translate(-50%, -50%);
+            transition: all 0.15s ease;
+        }
+        .cursor-ring.hovering {
+            width: 54px; height: 54px;
+            border-color: rgba(240,192,64,0.8);
+            background: rgba(240,192,64,0.06);
+        }
+
+        /* ══ LAYOUT ══ */
+        .root {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* ══ TOP LINE ══ */
+        .top-line {
+            position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 1000;
+            background: linear-gradient(90deg, var(--red), var(--gold), var(--gold2), var(--gold3), var(--gold), var(--red));
+            background-size: 400% 100%;
+            animation: line-move 4s linear infinite;
+            box-shadow: 0 0 20px rgba(212,160,23,0.6);
+        }
+        @keyframes line-move { to { background-position: -400% 0; } }
+
+        /* ══ LEFT PANEL — Image/Visual ══ */
+        .panel-left {
+            position: relative;
+            overflow: hidden;
+            display: flex; flex-direction: column;
+            justify-content: flex-end;
+            padding: 48px;
+        }
+
+        /* Background photo */
+        .panel-left-bg {
+            position: absolute; inset: 0;
+            background: url('/imagenes/donbosco_Inicio.jpg') center/cover no-repeat;
+            filter: brightness(0.35) saturate(0.7);
+            transform: scale(1.04);
+            transition: transform 8s ease;
+        }
+        .panel-left:hover .panel-left-bg { transform: scale(1.0); }
+
+        /* Gradient overlays */
+        .panel-left::before {
+            content: '';
+            position: absolute; inset: 0; z-index: 1;
+            background:
+                linear-gradient(to right, rgba(6,14,28,0.9) 0%, rgba(6,14,28,0.3) 100%),
+                linear-gradient(to top, rgba(6,14,28,0.95) 0%, transparent 60%);
+        }
+
+        /* Vertical gold line separator */
+        .panel-left::after {
+            content: '';
+            position: absolute; right: 0; top: 10%; bottom: 10%;
+            width: 1px;
+            background: linear-gradient(to bottom, transparent, rgba(212,160,23,0.4), rgba(212,160,23,0.6), rgba(212,160,23,0.4), transparent);
+            z-index: 10;
+        }
+
+        .left-content {
+            position: relative; z-index: 5;
+            animation: reveal-up 0.8s ease both;
+        }
+
+        /* School badge top-left */
+        .school-badge-top {
+            position: absolute; top: 52px; left: 48px; z-index: 5;
+            display: flex; align-items: center; gap: 14px;
+            animation: fadein 0.6s ease both;
+        }
+        .sb-logo {
+            width: 80px; height: 80px; border-radius: 80%;
+            background: white; border: 2.5px solid var(--gold);
+            box-shadow: 0 0 20px rgba(212,160,23,0.45);
+            overflow: hidden; padding: 3px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .sb-logo img { width: 180%; height: 180%; object-fit: contain; }
+        .sb-text-name {
+            font-family: 'Sora', sans-serif;
+            font-size: 24px; font-weight: 800; color: var(--gold2);
+            letter-spacing: 0.5px; line-height: 1.2;
+        }
+        .sb-text-sub { font-size: 16px; color: var(--muted); margin-top: 6px; }
+
+        /* Year badge */
+        .year-badge {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: rgba(212,160,23,0.1); border: 1px solid rgba(212,160,23,0.3);
+            color: var(--gold2); font-size: 10px; font-weight: 700;
+            letter-spacing: 2.5px; text-transform: uppercase;
+            padding: 6px 14px; border-radius: 50px; margin-bottom: 18px;
+        }
+        .year-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--gold2); animation: pdot 1.6s ease-in-out infinite; }
+        @keyframes pdot { 0%,100% { box-shadow: 0 0 0 0 rgba(240,192,64,0.5); } 50% { box-shadow: 0 0 0 5px rgba(240,192,64,0); } }
+
+        .left-title {
+            font-family: 'Sora', sans-serif;
+            font-size: clamp(32px, 4.5vw, 56px);
+            font-weight: 900; line-height: 1.05;
+            letter-spacing: -1.5px; margin-bottom: 16px;
+            color: var(--white);
+        }
+        .left-title em {
+            font-style: normal;
+            background: linear-gradient(90deg, var(--gold), var(--gold2), var(--gold3));
+            background-size: 200% auto;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer-text 3s linear infinite;
+        }
+        @keyframes shimmer-text { to { background-position: 200% center; } }
+
+        .left-desc {
+            font-size: 15px; color: rgba(122,156,196,0.85);
+            line-height: 1.75; max-width: 360px; margin-bottom: 36px;
+        }
+
+        /* Feature pills */
+        .feature-pills { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+        .pill {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.7); font-size: 12px; font-weight: 600;
+            padding: 7px 14px; border-radius: 50px;
+            transition: all 0.25s;
+        }
+        .pill:hover { background: rgba(212,160,23,0.1); border-color: rgba(212,160,23,0.35); color: var(--gold2); }
+        .pill i { font-size: 11px; color: var(--gold2); }
+
+        /* Animated stats row */
+        .stats-row {
+            display: flex; gap: 28px; margin-top: 32px; padding-top: 28px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .stat-item { text-align: left; }
+        .stat-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 28px; font-weight: 600; color: var(--gold2);
+            line-height: 1; display: block;
+        }
+        .stat-lbl { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-top: 4px; display: block; }
+
+        /* ══ RIGHT PANEL — Action ══ */
+        .panel-right {
+            position: relative;
+            background: linear-gradient(160deg, #0a1830 0%, #060e1c 100%);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 48px 56px;
+            overflow: hidden;
+        }
+
+        /* Animated mesh bg */
+        .mesh {
+            position: absolute; inset: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(212,160,23,0.028) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(212,160,23,0.028) 1px, transparent 1px);
+            background-size: 44px 44px;
+            animation: mesh-move 20s linear infinite;
+        }
+        @keyframes mesh-move { to { background-position: 44px 44px; } }
+
+        /* Orb glow */
+        .orb-r {
+            position: absolute; border-radius: 50%; pointer-events: none;
+        }
+        .orb-r1 { width: 350px; height: 350px; top: -80px; right: -80px; background: radial-gradient(circle, rgba(13,42,94,0.6), transparent 70%); }
+        .orb-r2 { width: 280px; height: 280px; bottom: -60px; left: -60px; background: radial-gradient(circle, rgba(192,39,45,0.08), transparent 70%); }
+
+        .right-inner {
+            position: relative; z-index: 2;
+            width: 100%; max-width: 420px;
+            animation: reveal-up 0.8s 0.15s ease both;
+        }
+
+        /* Logo big */
+        .logo-wrap {
+            display: flex; justify-content: center; margin-bottom: 32px;
+        }
+        .logo-ring {
+            width: 110px; height: 110px; border-radius: 50%;
+            background: white;
+            border: 3px solid var(--gold);
+            box-shadow:
+                0 0 0 6px rgba(212,160,23,0.1),
+                0 0 0 12px rgba(212,160,23,0.05),
+                0 0 40px rgba(212,160,23,0.35);
+            overflow: hidden; padding: 8px;
+            display: flex; align-items: center; justify-content: center;
+            animation: logo-pulse 3s ease-in-out infinite;
+        }
+        @keyframes logo-pulse {
+            0%,100% { box-shadow: 0 0 0 6px rgba(212,160,23,0.1), 0 0 0 12px rgba(212,160,23,0.05), 0 0 40px rgba(212,160,23,0.3); }
+            50%      { box-shadow: 0 0 0 8px rgba(212,160,23,0.15), 0 0 0 18px rgba(212,160,23,0.07), 0 0 60px rgba(212,160,23,0.5); }
+        }
+        .logo-ring img { width: 100%; height: 100%; object-fit: contain; }
+
+        /* System label */
+        .sys-label {
+            text-align: center; margin-bottom: 8px;
+            font-size: 10px; font-weight: 700; letter-spacing: 3px;
+            text-transform: uppercase; color: var(--gold2);
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .sys-label::before, .sys-label::after { content: ''; flex: 1; max-width: 40px; height: 1px; background: rgba(212,160,23,0.35); }
+
+        .sys-title {
+            font-family: 'Sora', sans-serif;
+            font-size: 30px; font-weight: 900; color: var(--white);
+            text-align: center; line-height: 1.1; margin-bottom: 6px;
+            letter-spacing: -0.5px;
+        }
+        .sys-title em { color: var(--gold2); font-style: normal; }
+        .sys-sub { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 36px; }
+
+        /* Action buttons */
+        .actions { display: flex; flex-direction: column; gap: 14px; width: 100%; }
+
+        .btn-main {
+            position: relative; overflow: hidden;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 22px; border-radius: 16px;
+            font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 700;
+            text-decoration: none; transition: transform 0.25s, box-shadow 0.25s;
+            cursor: none;
+        }
+        .btn-main-left { display: flex; align-items: center; gap: 14px; }
+        .btn-icon-wrap {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+        }
+        .btn-label { font-size: 14px; font-weight: 800; }
+        .btn-sublabel { font-size: 11px; font-weight: 500; opacity: 0.7; margin-top: 1px; }
+        .btn-arrow { font-size: 16px; transition: transform 0.25s; }
+
+        /* Shimmer overlay */
+        .btn-main::before {
+            content: ''; position: absolute; top: -50%; left: -100%;
+            width: 60%; height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+            transform: rotate(25deg); transition: none;
+        }
+        .btn-main:hover::before { animation: btn-shimmer 1.2s infinite; }
+        @keyframes btn-shimmer { 0% { left: -100%; } 100% { left: 150%; } }
+        .btn-main:hover { transform: translateY(-3px); }
+        .btn-main:hover .btn-arrow { transform: translateX(4px); }
+
+        /* Student button */
+        .btn-student {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 60%, var(--gold3) 100%);
+            color: var(--navy);
+            box-shadow: 0 8px 32px rgba(212,160,23,0.35);
+        }
+        .btn-student:hover { box-shadow: 0 14px 44px rgba(212,160,23,0.55); }
+        .btn-student .btn-icon-wrap { background: rgba(10,22,40,0.2); color: var(--navy); }
+
+        /* Admin button */
+        .btn-admin {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--white);
+        }
+        .btn-admin:hover { background: rgba(255,255,255,0.08); border-color: rgba(212,160,23,0.3); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .btn-admin .btn-icon-wrap { background: rgba(212,160,23,0.1); border: 1px solid rgba(212,160,23,0.2); color: var(--gold2); }
+
+        /* Divider */
+        .divider {
+            display: flex; align-items: center; gap: 14px;
+            margin: 4px 0;
+        }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.07); }
+        .divider span { font-size: 10px; color: rgba(122,156,196,0.5); letter-spacing: 1px; text-transform: uppercase; }
+
+        /* Footer note */
+        .right-footer {
+            margin-top: 28px; text-align: center;
+            font-size: 11px; color: rgba(122,156,196,0.4);
+            line-height: 1.6;
+        }
+        .right-footer a { color: rgba(212,160,23,0.6); text-decoration: none; }
+        .right-footer a:hover { color: var(--gold2); }
+
+        /* ══ PARTICLES ══ */
+        .particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+        .p { position: absolute; border-radius: 50%; animation: p-float linear infinite; opacity: 0; }
+        @keyframes p-float {
+            0%   { transform: translateY(100vh) rotate(0); opacity: 0; }
+            8%   { opacity: 0.7; }
+            92%  { opacity: 0.3; }
+            100% { transform: translateY(-60px) rotate(540deg); opacity: 0; }
+        }
+
+        /* ══ ANIMATIONS ══ */
+        @keyframes fadein  { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes reveal-up {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ══ LOADING SCREEN ══ */
+        .loader {
+            position: fixed; inset: 0; z-index: 8000;
+            background: var(--navy);
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 20px;
+            animation: loader-out 0.5s 1.2s ease forwards;
+        }
+        @keyframes loader-out {
+            to { opacity: 0; pointer-events: none; }
+        }
+        .loader-logo {
+            width: 72px; height: 72px; border-radius: 50%;
+            background: white; border: 2px solid var(--gold);
+            padding: 6px; overflow: hidden;
+            box-shadow: 0 0 30px rgba(212,160,23,0.4);
+            animation: loader-scale 1.1s ease-in-out infinite alternate;
+        }
+        @keyframes loader-scale { to { box-shadow: 0 0 50px rgba(212,160,23,0.7); transform: scale(1.05); } }
+        .loader-logo img { width: 100%; height: 100%; object-fit: contain; }
+        .loader-bar-wrap {
+            width: 160px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden;
+        }
+        .loader-bar {
+            height: 100%; border-radius: 2px;
+            background: linear-gradient(90deg, var(--gold), var(--gold2));
+            animation: loader-fill 1.1s ease forwards;
+        }
+        @keyframes loader-fill { from { width: 0; } to { width: 100%; } }
+        .loader-text { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+
+        /* ══ RESPONSIVE ══ */
+        @media (max-width: 860px) {
+            html, body { overflow: auto; }
+            .root { grid-template-columns: 1fr; height: auto; }
+            .panel-left {
+                min-height: auto;
+                justify-content: flex-start;
+                padding: 26px 20px 28px;
+            }
+            .panel-right { padding: 44px 28px 60px; }
+            .cursor-dot, .cursor-ring { display: none; }
+            html, body { cursor: auto; }
+            .btn-main { cursor: pointer; }
+
+            .school-badge-top {
+                position: static;
+                width: 100%;
+                margin: 0 0 18px;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                gap: 8px;
+            }
+
+            .sb-logo {
+                width: 64px;
+                height: 64px;
+            }
+
+            .sb-text-name {
+                font-size: 16px;
+                line-height: 1.1;
+                max-width: 22ch;
+            }
+
+            .sb-text-sub {
+                font-size: 12px;
+                margin-top: 4px;
+            }
+
+            .left-content {
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .year-badge {
+                margin-bottom: 14px;
+                font-size: 9px;
+                letter-spacing: 2px;
+                padding: 5px 12px;
+            }
+
+            .left-title {
+                font-size: 28px;
+                line-height: 1.02;
+                max-width: 11ch;
+                margin-bottom: 12px;
+            }
+
+            .left-desc {
+                font-size: 13px;
+                line-height: 1.6;
+                max-width: 560px;
+                margin-bottom: 22px;
+            }
+
+            .feature-pills {
+                justify-content: center;
+                gap: 8px;
+            }
+
+            .pill { font-size: 11px; padding: 7px 12px; }
+
+            .stats-row {
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 18px;
+                margin-top: 24px;
+                padding-top: 20px;
+            }
+        }
+        @media (max-width: 480px) {
+            .panel-left {
+                padding: 22px 16px 24px;
+            }
+
+            .school-badge-top {
+                margin-bottom: 16px;
+            }
+
+            .sb-logo {
+                width: 58px;
+                height: 58px;
+            }
+
+            .sb-text-name {
+                font-size: 14px;
+                max-width: 20ch;
+            }
+
+            .sb-text-sub {
+                font-size: 12px;
+                margin-top: 2px;
+            }
+
+            .year-badge {
+                margin-bottom: 14px;
+                font-size: 9px;
+                letter-spacing: 2px;
+                padding: 5px 12px;
+            }
+
+            .left-title {
+                font-size: 24px;
+                line-height: 1.02;
+                max-width: 10ch;
+                margin-bottom: 10px;
+            }
+
+            .left-desc {
+                font-size: 13px;
+                line-height: 1.65;
+                margin-bottom: 20px;
+            }
+
+            .feature-pills {
+                justify-content: center;
+            }
+
+            .pill {
+                font-size: 11px;
+                padding: 7px 11px;
+            }
+
+            .stats-row {
+                gap: 18px;
+                margin-top: 22px;
+                padding-top: 18px;
+            }
+
+            .stat-num {
+                font-size: 24px;
+            }
+
+            .panel-right {
+                padding: 32px 18px 48px;
+            }
+
+            .logo-ring {
+                width: 88px;
+                height: 88px;
+            }
+
+            .sys-title {
+                font-size: 24px;
+            }
+
+            .sys-sub {
+                margin-bottom: 28px;
+            }
+
+            .btn-main {
+                padding: 16px 18px;
+            }
+
+            .btn-main-left {
+                gap: 12px;
+            }
+
+            .btn-icon-wrap {
+                width: 40px;
+                height: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div class="loader" id="loader">
+    <div class="loader-logo">
+        <img src="/imagenes/logo_donbosco.jpg"
+             onerror="this.src='https://donboscolatola.edu.ec/wp-content/uploads/2024/01/cropped-LOGO-DON-BOSCO.png';this.onerror=null;"
+             alt="Don Bosco">
+    </div>
+    <div class="loader-bar-wrap"><div class="loader-bar"></div></div>
+    <div class="loader-text">ClubGest</div>
+</div>
+
+<!-- CUSTOM CURSOR -->
+<div class="cursor-dot"  id="cur-dot"></div>
+<div class="cursor-ring" id="cur-ring"></div>
+
+<!-- TOP LINE -->
+<div class="top-line"></div>
+
+<!-- PARTICLES -->
+<div class="particles" id="particles"></div>
+
+<!-- ROOT -->
+<div class="root">
+
+    <!-- ══ LEFT PANEL ══ -->
+    <div class="panel-left">
+        <div class="panel-left-bg"></div>
+
+        <!-- School badge top -->
+        <div class="school-badge-top">
+            <div class="sb-logo">
+                <img src="/imagenes/colegio_Donbosco.jpeg"
+                     onerror="this.src='https://donboscolatola.edu.ec/wp-content/uploads/2024/01/cropped-LOGO-DON-BOSCO.png';this.onerror=null;"
+                     alt="Logo">
+            </div>
+            <div>
+                <div class="sb-text-name">Unidad Educativa Fiscomisional Salesiana</div>
+                <div class="sb-text-sub">Don Bosco La Tola</div>
+            </div>
+        </div>
+
+        <!-- Main content bottom-left -->
+        <div class="left-content">
+            <div class="year-badge">
+                Periodo académico 2025–2026
+            </div>
+
+            <h1 class="left-title">
+                Elige tu club,<br>
+                construye tu<br>
+                <em>futuro.</em>
+            </h1>
+
+            <p class="left-desc">
+                Inscríbete en el club que más te apasione
+                y forma parte de la comunidad extracurricular
+                del Don Bosco La Tola.
+            </p>
+
+            <div class="feature-pills">
+                <div class="pill"><i class="fas fa-trophy"></i> Deportes</div>
+                <div class="pill"><i class="fas fa-palette"></i> Arte</div>
+                <div class="pill"><i class="fas fa-laptop-code"></i> Tecnología</div>
+                <div class="pill"><i class="fas fa-music"></i> Música</div>
+                <div class="pill"><i class="fas fa-flask"></i> Ciencias</div>
+            </div>
+
+          
+        </div>
+    </div>
+
+    <!-- ══ RIGHT PANEL ══ -->
+    <div class="panel-right">
+        <div class="mesh"></div>
+        <div class="orb-r orb-r1"></div>
+        <div class="orb-r orb-r2"></div>
+
+        <div class="right-inner">
+
+            <!-- Logo -->
+            <div class="logo-wrap">
+                <div class="logo-ring">
+                    <img src="/imagenes/logo_donbosco.jpg"
+                         onerror="this.src='https://donboscolatola.edu.ec/wp-content/uploads/2024/01/cropped-LOGO-DON-BOSCO.png';this.onerror=null;"
+                         alt="Don Bosco">
+                </div>
+            </div>
+
+            <div class="sys-label">Sistema de Gestión</div>
+            <div class="sys-title">Club<em>Gest</em></div>
+            <div class="sys-sub">¿Cómo deseas acceder?</div>
+
+            <div class="actions">
+
+                <!-- ESTUDIANTE -->
+                <a href="/formulario" class="btn-main btn-student">
+                    <div class="btn-main-left">
+                        <div class="btn-icon-wrap">
+                            <i class="fas fa-user-graduate"></i>
+                        </div>
+                        <div>
+                            <div class="btn-label">Soy Estudiante</div>
+                            <div class="btn-sublabel">Inscribirme en un club</div>
+                        </div>
+                    </div>
+                    <i class="fas fa-arrow-right btn-arrow"></i>
+                </a>
+
+                <div class="divider"><span>o</span></div>
+
+                <!-- ADMIN -->
+                <a href="/login" class="btn-main btn-admin">
+                    <div class="btn-main-left">
+                        <div class="btn-icon-wrap">
+                            <i class="fas fa-shield-halved"></i>
+                        </div>
+                        <div>
+                            <div class="btn-label">Acceso Administrativo</div>
+                            <div class="btn-sublabel">Panel de gestión</div>
+                        </div>
+                    </div>
+                    <i class="fas fa-arrow-right btn-arrow"></i>
+                </a>
+
+            </div>
+
+            <div class="right-footer">
+                130 años formando buenos cristianos<br>y honrados ciudadanos<br>
+                <a href="https://donboscolatola.edu.ec" target="_blank">donboscolatola.edu.ec</a>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /root -->
+
+<script>
+    /* ══ LOADER ══ */
+    setTimeout(() => {
+        document.getElementById('loader').style.display = 'none';
+    }, 1700);
+
+    /* ══ CUSTOM CURSOR ══ */
+    const dot  = document.getElementById('cur-dot');
+    const ring = document.getElementById('cur-ring');
+    let mx = 0, my = 0, rx = 0, ry = 0;
+    document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    function animCursor() {
+        dot.style.left  = mx + 'px';
+        dot.style.top   = my + 'px';
+        rx += (mx - rx) * 0.14;
+        ry += (my - ry) * 0.14;
+        ring.style.left = rx + 'px';
+        ring.style.top  = ry + 'px';
+        requestAnimationFrame(animCursor);
+    }
+    animCursor();
+    document.querySelectorAll('a, button, .pill').forEach(el => {
+        el.addEventListener('mouseenter', () => ring.classList.add('hovering'));
+        el.addEventListener('mouseleave', () => ring.classList.remove('hovering'));
+    });
+
+    /* ══ PARTICLES ══ */
+    const pc = document.getElementById('particles');
+    const COLS = ['#d4a017','#f0c040','#ffe080','#c0272d','rgba(255,255,255,0.5)'];
+    for (let i = 0; i < 40; i++) {
+        const p  = document.createElement('div');
+        p.className = 'p';
+        const s  = Math.random() * 3 + 1.2;
+        const c  = COLS[Math.floor(Math.random() * COLS.length)];
+        const dur = Math.random() * 18 + 8;
+        const del = Math.random() * 14;
+        p.style.cssText = `
+            width:${s}px; height:${s}px;
+            background:${c};
+            left:${Math.random()*100}%;
+            animation-duration:${dur}s;
+            animation-delay:${del}s;
+            box-shadow: 0 0 ${s*2}px ${c};
+        `;
+        pc.appendChild(p);
+    }
+
+    /* ══ STATS COUNTER ANIMATION ══ */
+    function animCount(el, target, dur) {
+        let start = 0;
+        const step = target / (dur / 16);
+        const t = setInterval(() => {
+            start = Math.min(start + step, target);
+            el.textContent = Math.floor(start);
+            if (start >= target) clearInterval(t);
+        }, 16);
+    }
+
+    /* Fetch stats from Flask — fallback to demo numbers */
+    async function loadStats() {
+        try {
+            const r = await fetch('/stats_publicas');
+            if (r.ok) {
+                const d = await r.json();
+                setTimeout(() => {
+                    animCount(document.getElementById('stat-clubs'),    d.clubes_activos  || 0, 1400);
+                    animCount(document.getElementById('stat-students'), d.inscritos       || 0, 1600);
+                    animCount(document.getElementById('stat-spots'),    d.cupos_libres    || 0, 1500);
+                }, 1800);
+                return;
+            }
+        } catch (_) {}
+        /* Demo fallback */
+        setTimeout(() => {
+            animCount(document.getElementById('stat-clubs'),    12, 1400);
+            animCount(document.getElementById('stat-students'), 347, 1600);
+            animCount(document.getElementById('stat-spots'),    89, 1500);
+        }, 1800);
+    }
+    loadStats();
+
+    /* ══ PARALLAX on mouse ══ */
+    const bg = document.querySelector('.panel-left-bg');
+    document.addEventListener('mousemove', e => {
+        const x = (e.clientX / window.innerWidth  - 0.5) * 10;
+        const y = (e.clientY / window.innerHeight - 0.5) * 8;
+        bg.style.transform = `scale(1.06) translate(${x}px, ${y}px)`;
+    });
+</script>
+
+</body>
+</html>

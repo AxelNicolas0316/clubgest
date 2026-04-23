@@ -1,0 +1,759 @@
+from flask import Flask, render_template, request, redirect, session, send_from_directory, url_for, flash
+from werkzeug.utils import secure_filename
+import mysql.connector
+from mysql.connector import Error
+import os
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
+
+# Importamos las funciones que creamos para las recomendaciones
+from recomendaciones import PREGUNTAS_RECOMENDACION, calcular_recomendacion, obtener_clubes_recomendados
+from app_informes import generar_pdf, generar_excel
+
+app = Flask(__name__)
+app.secret_key = "clave_secreta_para_la_sesion"
+
+# Configuración para subir imágenes
+UPLOAD_FOLDER = 'static/uploads/clubes'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Asegurarse de que la carpeta de subida exista
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_connection():
+    """Obtiene una conexión a la base de datos de Aiven usando variables de entorno"""
+    try:
+        conn = mysql.connector.connect(
+            host=os.environ.get('DB_HOST', 'mysql-3f49e41c-axelpsoriano03-a945.h.aivencloud.com'),
+            user=os.environ.get('DB_USER', 'avnadmin'),
+            password=os.environ.get('DB_PASSWORD', ''),
+            database=os.environ.get('DB_NAME', 'defaultdb'),
+            port=int(os.environ.get('DB_PORT', 18162)),
+            connection_timeout=30
+        )
+        return conn
+    except Error as e:
+        print(f"Error de conexión a MySQL: {e}")
+        return None
+
+# Crear conexión global
+conexion = get_connection()
+if conexion is None:
+    print("No se pudo conectar a la base de datos. Verifica tus credenciales.")
+    exit(1)
+
+cursor = conexion.cursor(dictionary=True)
+
+
+@app.route('/imagenes/<path:filename>')
+def serve_image(filename):
+    """Sirve las imágenes de la carpeta imagenes/"""
+    return send_from_directory('imagenes', filename)
+
+
+@app.route("/")
+def inicio():
+    return render_template("inicio.html")
+
+
+@app.route("/formulario")
+def formulario():
+    """Muestra el formulario de registro con niveles y especialidades"""
+    cursor.execute("SELECT * FROM niveles")
+    niveles = cursor.fetchall()
+    cursor.execute("SELECT * FROM especialidades")
+    especialidades = cursor.fetchall()
+    return render_template("formulario.html", niveles=niveles, especialidades=especialidades)
+
+
+@app.route("/inscribirse", methods=["POST"])
+def inscribirse():
+    """Guarda al estudiante en la base de datos después de validar su correo"""
+    nombre = request.form["nombre"]
+    apellido = request.form["apellido"]
+    correo = request.form["correo"].lower()
+    genero = request.form["genero"]
+    nivel = request.form["nivel"]
+    especialidad = request.form["especialidad"]
+
+    # Validación estricta de correo institucional
+    if not correo.endswith("@donboscolatola.edu.ec"):
+        cursor.execute("SELECT * FROM niveles")
+        niveles = cursor.fetchall()
+        cursor.execute("SELECT * FROM especialidades")
+        especialidades = cursor.fetchall()
+        return render_template("formulario.html", 
+                             error="Solo se permiten correos institucionales @donboscolatola.edu.ec",
+                             niveles=niveles,
+                             especialidades=especialidades)
+
+    # Verificar si el correo ya existe
+    cursor.execute("SELECT * FROM estudiantes WHERE correo_institucional=%s", (correo,))
+    if cursor.fetchone():
+        cursor.execute("SELECT * FROM niveles")
+        niveles = cursor.fetchall()
+        cursor.execute("SELECT * FROM especialidades")
+        especialidades = cursor.fetchall()
+        return render_template("formulario.html", 
+                             error="Este correo ya está registrado. Si no has elegido club, contacta al administrador.",
+                             niveles=niveles,
+                             especialidades=especialidades)
+
+    # Insertar estudiante
+    sql = "INSERT INTO estudiantes (nombres, apellidos, correo_institucional, genero, id_nivel, id_especialidad) VALUES (%s,%s,%s,%s,%s,%s)"
+    cursor.execute(sql, (nombre, apellido, correo, genero, nivel, especialidad))
+    conexion.commit()
+
+    # Guardar datos en sesión para el proceso de inscripción
+    session["id_estudiante"] = cursor.lastrowid
+    session["nivel"] = nivel
+
+    return redirect("/clubes")
+
+
+@app.route("/cuestionario")
+def cuestionario():
+    """Muestra las preguntas para recomendar clubes (si el estudiante quiere ayuda)"""
+    if "id_estudiante" not in session:
+        return redirect("/formulario")
+    return render_template("preguntas.html", preguntas=PREGUNTAS_RECOMENDACION)
+
+
+@app.route("/guardar_respuestas", methods=["POST"])
+def guardar_respuestas():
+    """Guarda las respuestas del cuestionario y redirige a la recomendación"""
+    if "id_estudiante" not in session:
+        return redirect("/formulario")
+    
+    respuestas = []
+    for i in range(len(PREGUNTAS_RECOMENDACION)):
+        respuesta = request.form.get(f"pregunta_{i}")
+        if respuesta:
+            respuestas.append(respuesta)
+    
+    if len(respuestas) == len(PREGUNTAS_RECOMENDACION):
+        session["respuestas_recomendacion"] = respuestas
+        return redirect("/recomendacion_clubes")
+    else:
+        return "Por favor responde todas las preguntas para poder ayudarte.", 400
+
+
+@app.route("/recomendacion_clubes")
+def recomendacion_clubes():
+    """Calcula el perfil del estudiante y muestra clubes recomendados"""
+    if "id_estudiante" not in session:
+        return redirect("/formulario")
+    if "respuestas_recomendacion" not in session:
+        return redirect("/cuestionario")
+    
+    nivel = int(session.get("nivel"))
+    
+    # Obtener clubes disponibles con sus cupos
+    cursor.execute("""
+        SELECT clubes.*, niveles.nombre_nivel,
+        (SELECT COUNT(*) FROM inscripciones WHERE inscripciones.id_club = clubes.id_club) as inscritos,
+        (clubes.cupo_maximo - (SELECT COUNT(*) FROM inscripciones WHERE inscripciones.id_club = clubes.id_club)) AS cupos_restantes
+        FROM clubes JOIN niveles ON clubes.id_nivel = niveles.id_nivel
+        WHERE clubes.id_nivel = %s AND clubes.activo = 1
+    """, (nivel,))
+    clubes_disponibles = cursor.fetchall()
+    
+    # Analizar respuestas y recomendar
+    respuestas = session["respuestas_recomendacion"]
+    recomendacion = calcular_recomendacion(respuestas)
+    clubes_recomendados, otros_clubes = obtener_clubes_recomendados(clubes_disponibles, recomendacion["categoria"])
+    
+    return render_template("recomendacion.html", recomendacion=recomendacion, 
+                           clubes_recomendados=clubes_recomendados, otros_clubes=otros_clubes, 
+                           clubes_disponibles=clubes_disponibles)
+
+
+@app.route("/clubes")
+def clubes():
+    """Lista todos los clubes disponibles para el nivel del estudiante"""
+    if "id_estudiante" not in session:
+        return redirect("/formulario")
+
+    nivel = int(session.get("nivel"))
+    
+    cursor.execute("""
+    SELECT clubes.*, (SELECT COUNT(*) FROM inscripciones WHERE inscripciones.id_club = clubes.id_club) as inscritos,
+    (clubes.cupo_maximo - (SELECT COUNT(*) FROM inscripciones WHERE inscripciones.id_club = clubes.id_club)) AS cupos_restantes
+    FROM clubes WHERE clubes.id_nivel = %s AND clubes.activo = 1
+    """, (nivel,))
+
+    clubes_lista = cursor.fetchall()
+    disponible = len(clubes_lista) > 0
+
+    return render_template("clubes.html", clubes=clubes_lista, disponible=disponible)
+
+
+@app.route("/inscribir_club", methods=["POST"])
+def inscribir_club():
+    """Finaliza la inscripción: guarda la relación estudiante-club"""
+    if "id_estudiante" not in session:
+        return redirect("/")
+
+    estudiante = session["id_estudiante"]
+    club = request.form.get("club")
+
+    if not club:
+        return "Error: No elegiste ningún club."
+
+    # Verificar que no esté ya inscrito
+    cursor.execute("SELECT * FROM inscripciones WHERE id_estudiante=%s", (estudiante,))
+    if cursor.fetchone():
+        return "Ya estás inscrito en un club."
+
+    # Verificar cupos disponibles
+    cursor.execute("SELECT cupo_maximo, (SELECT COUNT(*) FROM inscripciones WHERE id_club = %s) as usados FROM clubes WHERE id_club = %s", (club, club))
+    datos = cursor.fetchone()
+
+    if datos["usados"] >= datos["cupo_maximo"]:
+        return "¡Lo sentimos! El club se llenó justo ahora."
+
+    # Registrar inscripción
+    cursor.execute("INSERT INTO inscripciones (id_estudiante, id_club) VALUES (%s, %s)", (estudiante, club))
+    conexion.commit()
+
+    # Limpiar sesión
+    session.pop("id_estudiante", None)
+    session.pop("nivel", None)
+    session.pop("respuestas_recomendacion", None)
+
+    return render_template("exito.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """Acceso para administradores"""
+    if request.method == "POST":
+        if request.form["usuario"] == "admin" and request.form["password"] == "1234":
+            session["admin"] = True
+            return redirect("/admin")
+        return "Usuario o clave incorrectos."
+    return render_template("login.html")
+
+
+@app.route("/admin")
+def admin():
+    """Panel principal del administrador con estadísticas"""
+    if "admin" not in session:
+        return redirect("/login")
+
+    # Datos de clubes con cupos usados
+    cursor.execute("""
+    SELECT clubes.*, niveles.nombre_nivel, COUNT(inscripciones.id_inscripcion) AS cupos_usados
+    FROM clubes LEFT JOIN inscripciones ON clubes.id_club = inscripciones.id_club
+    JOIN niveles ON clubes.id_nivel = niveles.id_nivel GROUP BY clubes.id_club
+    """)
+    clubes = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM niveles")
+    niveles = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM especialidades")
+    especialidades = cursor.fetchall()
+
+    # Últimas inscripciones para el panel
+    cursor.execute("""
+        SELECT e.nombres, e.apellidos, n.nombre_nivel, c.nombre_club,
+        DATE(i.fecha_hora) as fecha, TIME(i.fecha_hora) as hora
+        FROM inscripciones i JOIN estudiantes e ON i.id_estudiante = e.id_estudiante
+        JOIN clubes c ON i.id_club = c.id_club JOIN niveles n ON e.id_nivel = n.id_nivel
+        ORDER BY i.fecha_hora DESC LIMIT 15
+    """)
+    historial = cursor.fetchall()
+
+    return render_template("admin.html", clubes=clubes, niveles=niveles, especialidades=especialidades, historial=historial)
+
+
+@app.route("/crear_club", methods=["POST"])
+def crear_club():
+    """Crea un nuevo club con su nombre, tutor, cupo y nivel"""
+    if "admin" not in session:
+        return redirect("/login")
+    
+    nombre = request.form["nombre"]
+    tutor = request.form.get("tutor", "Por asignar")
+    descripcion = request.form.get("descripcion", "")
+    cupo = int(request.form["cupo"])
+    nivel = request.form["nivel"]
+
+    # Verificar si el tutor ya existe
+    if tutor != "Por asignar":
+        cursor.execute("SELECT id_club FROM clubes WHERE tutor = %s", (tutor,))
+        if cursor.fetchone():
+            flash(f"El tutor '{tutor}' ya ha sido asignado a otro club.", "error")
+            return redirect("/admin")
+    
+    # Manejo de la imagen
+    filename = None
+    if 'imagen' in request.files:
+        file = request.files['imagen']
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            import time
+            filename = f"{int(time.time())}_{filename}"
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+    try:
+        cursor.execute("INSERT INTO clubes (nombre_club, tutor, descripcion, imagen, cupo_maximo, id_nivel, activo) VALUES (%s, %s, %s, %s, %s, %s, 1)", 
+                       (nombre, tutor, descripcion, filename, cupo, nivel))
+        conexion.commit()
+        flash("Club creado exitosamente.", "success")
+    except mysql.connector.Error as err:
+        if err.errno == 1062: # Duplicate entry
+            flash("Error: El tutor ya está asignado.", "error")
+        else:
+            flash(f"Error en la base de datos: {err}", "error")
+            
+    return redirect("/admin")
+
+
+@app.route("/editar_club/<id>", methods=["POST"])
+def editar_club(id):
+    """Actualiza la información de un club, incluyendo su imagen si se sube una nueva"""
+    if "admin" not in session:
+        return redirect("/login")
+
+    nombre = request.form["nombre"]
+    tutor = request.form.get("tutor", "Por asignar")
+    descripcion = request.form.get("descripcion", "")
+    cupo = int(request.form["cupo"])
+    nivel = request.form["nivel"]
+    eliminar_imagen = request.form.get("eliminar_imagen") == "1"
+
+    # Verificar si el tutor ya existe en otro club
+    if tutor != "Por asignar":
+        cursor.execute("SELECT id_club FROM clubes WHERE tutor = %s AND id_club != %s", (tutor, id))
+        if cursor.fetchone():
+            flash(f"El tutor '{tutor}' ya ha sido asignado a otro club.", "error")
+            return redirect("/admin")
+
+    # Obtener la imagen actual del club
+    cursor.execute("SELECT imagen FROM clubes WHERE id_club = %s", (id,))
+    club_actual = cursor.fetchone()
+    filename = club_actual['imagen'] if club_actual else None
+
+    # Si se marcó para eliminar la imagen actual
+    if eliminar_imagen and filename:
+        try:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        except:
+            pass
+        filename = None
+
+    # Manejo de nueva imagen
+    if 'imagen' in request.files:
+        file = request.files['imagen']
+        if file and allowed_file(file.filename):
+            if filename:
+                try:
+                    os.remove(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                except:
+                    pass
+            
+            filename = secure_filename(file.filename)
+            import time
+            filename = f"{int(time.time())}_{filename}"
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+    # Actualizar en la base de datos
+    try:
+        sql = """
+            UPDATE clubes 
+            SET nombre_club = %s, tutor = %s, descripcion = %s, imagen = %s, cupo_maximo = %s, id_nivel = %s 
+            WHERE id_club = %s
+        """
+        cursor.execute(sql, (nombre, tutor, descripcion, filename, cupo, nivel, id))
+        conexion.commit()
+        flash("Club actualizado exitosamente.", "success")
+    except mysql.connector.Error as err:
+        if err.errno == 1062:
+            flash("Error: El tutor ya está asignado.", "error")
+        else:
+            flash(f"Error en la base de datos: {err}", "error")
+    
+    return redirect("/admin")
+
+
+@app.route("/desactivar/<id>")
+def desactivar(id):
+    """Desactiva un club para que no reciba más inscripciones"""
+    cursor.execute("UPDATE clubes SET activo = 0 WHERE id_club = %s", (id,))
+    conexion.commit()
+    return redirect(request.headers.get("Referer") or "/admin")
+
+
+@app.route("/activar/<id>")
+def activar(id):
+    """Reactiva un club desactivado anteriormente"""
+    cursor.execute("UPDATE clubes SET activo = 1 WHERE id_club = %s", (id,))
+    conexion.commit()
+    return redirect(request.headers.get("Referer") or "/admin")
+
+
+@app.route("/eliminar_club/<id>")
+def eliminar_club(id):
+    """Elimina un club y libera a los estudiantes inscritos en él"""
+    try:
+        # Obtener estudiantes del club
+        cursor.execute("SELECT id_estudiante FROM inscripciones WHERE id_club = %s", (id,))
+        estudiantes = cursor.fetchall()
+        
+        # Eliminar inscripciones
+        cursor.execute("DELETE FROM inscripciones WHERE id_club = %s", (id,))
+        
+        # Eliminar estudiantes para que puedan re-inscribirse con su correo
+        if estudiantes:
+            ids = [e['id_estudiante'] for e in estudiantes]
+            cursor.execute(f"DELETE FROM estudiantes WHERE id_estudiante IN ({','.join(['%s']*len(ids))})", tuple(ids))
+        
+        # Eliminar el club
+        cursor.execute("DELETE FROM clubes WHERE id_club = %s", (id,))
+        conexion.commit()
+    except Exception as e:
+        print(f"Error al eliminar: {e}")
+    return redirect("/admin")
+
+
+@app.route("/admin_inscripciones")
+def admin_inscripciones():
+    """Reporte de estudiantes agrupados por nivel académico"""
+    if "admin" not in session:
+        return redirect("/login")
+
+    def get_lista(id_nivel):
+        cursor.execute("""
+        SELECT e.id_estudiante, e.nombres, e.apellidos, e.correo_institucional, e.genero, e.id_nivel, e.id_especialidad,
+        c.id_club, c.nombre_club, c.tutor, esp.nombre_especialidad,
+        DATE(i.fecha_hora) as fecha, TIME(i.fecha_hora) as hora
+        FROM inscripciones i 
+        JOIN estudiantes e ON i.id_estudiante = e.id_estudiante
+        JOIN clubes c ON i.id_club = c.id_club
+        JOIN especialidades esp ON e.id_especialidad = esp.id_especialidad
+        WHERE e.id_nivel = %s
+        ORDER BY e.apellidos, e.nombres
+        """, (id_nivel,))
+        return cursor.fetchall()
+
+    cursor.execute("SELECT * FROM niveles")
+    niveles_lista = cursor.fetchall()
+    cursor.execute("SELECT * FROM clubes ORDER BY nombre_club")
+    clubes_lista = cursor.fetchall()
+    cursor.execute("SELECT * FROM especialidades ORDER BY nombre_especialidad")
+    especialidades_lista = cursor.fetchall()
+
+    return render_template("admin_inscripciones.html", 
+                         primero=get_lista(1), 
+                         segundo=get_lista(2), 
+                         tercero=get_lista(3),
+                         niveles_lista=niveles_lista,
+                         clubes_lista=clubes_lista,
+                         especialidades_lista=especialidades_lista)
+
+
+@app.route("/admin_clubes")
+def admin_clubes():
+    """Reporte de estudiantes agrupados por club"""
+    if "admin" not in session:
+        return redirect("/login")
+
+    def get_lista_club(id_nivel):
+        cursor.execute("""
+        SELECT clubes.id_club, clubes.nombre_club, clubes.tutor, estudiantes.id_estudiante,
+        estudiantes.nombres, estudiantes.apellidos, estudiantes.correo_institucional,
+        estudiantes.genero, estudiantes.id_nivel, estudiantes.id_especialidad, especialidades.nombre_especialidad,
+        inscripciones.id_inscripcion, DATE(inscripciones.fecha_hora) as fecha, TIME(inscripciones.fecha_hora) as hora
+        FROM clubes LEFT JOIN inscripciones ON clubes.id_club = inscripciones.id_club
+        LEFT JOIN estudiantes ON inscripciones.id_estudiante = estudiantes.id_estudiante
+        LEFT JOIN especialidades ON estudiantes.id_especialidad = especialidades.id_especialidad
+        WHERE clubes.id_nivel = %s ORDER BY clubes.nombre_club, estudiantes.apellidos
+        """, (id_nivel,))
+        return cursor.fetchall()
+
+    cursor.execute("SELECT * FROM niveles")
+    niveles_lista = cursor.fetchall()
+    cursor.execute("SELECT * FROM clubes ORDER BY nombre_club")
+    clubes_lista = cursor.fetchall()
+    cursor.execute("SELECT * FROM especialidades ORDER BY nombre_especialidad")
+    especialidades_lista = cursor.fetchall()
+
+    return render_template("admin_clubes.html", 
+                         primero=get_lista_club(1), 
+                         segundo=get_lista_club(2), 
+                         tercero=get_lista_club(3), 
+                         niveles_lista=niveles_lista, 
+                         clubes_lista=clubes_lista,
+                         especialidades_lista=especialidades_lista)
+
+
+@app.route("/editar_estudiante", methods=["POST"])
+def editar_estudiante():
+    """Edita todos los datos del estudiante y su inscripción a un club"""
+    if "admin" not in session:
+        return redirect("/login")
+
+    id_est = request.form.get("id_estudiante")
+    nombres = request.form.get("nombres")
+    apellidos = request.form.get("apellidos")
+    correo = request.form.get("correo")
+    genero = request.form.get("genero")
+    id_niv = request.form.get("id_nivel")
+    id_esp = request.form.get("id_especialidad")
+    id_club = request.form.get("id_club")
+
+    try:
+        # Actualizar datos básicos en la tabla estudiantes
+        sql_est = """
+            UPDATE estudiantes 
+            SET nombres = %s, apellidos = %s, correo_institucional = %s, genero = %s, id_nivel = %s, id_especialidad = %s 
+            WHERE id_estudiante = %s
+        """
+        cursor.execute(sql_est, (nombres, apellidos, correo, genero, id_niv, id_esp, id_est))
+
+        # Actualizar club en la tabla inscripciones
+        sql_ins = "UPDATE inscripciones SET id_club = %s WHERE id_estudiante = %s"
+        cursor.execute(sql_ins, (id_club, id_est))
+
+        conexion.commit()
+        flash("Datos del estudiante actualizados correctamente.", "success")
+    except Exception as e:
+        print(f"Error al editar estudiante: {e}")
+        flash(f"Error al actualizar: {str(e)}", "error")
+
+    return redirect(request.referrer or "/admin_clubes")
+
+
+@app.route("/admin_Informes")
+def admin_informes():
+    """Panel de generación de informes"""
+    if "admin" not in session:
+        return redirect("/login")
+
+    cursor.execute("SELECT * FROM niveles")
+    niveles = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM especialidades")
+    especialidades = cursor.fetchall()
+
+    cursor.execute("SELECT id_club, nombre_club FROM clubes ORDER BY nombre_club")
+    clubes = cursor.fetchall()
+
+    return render_template("admin_informes.html", niveles=niveles, especialidades=especialidades, clubes=clubes)
+
+
+@app.route("/logout")
+def logout():
+    """Cierra la sesión actual"""
+    session.clear()
+    return redirect("/")
+
+
+@app.route("/buscar_estudiante")
+def buscar_estudiante():
+    """API para buscar estudiantes por nombre, apellido o correo"""
+    query = request.args.get("q", "")
+    if not query:
+        return {"resultados": []}
+    
+    like_query = f"%{query}%"
+    cursor.execute("""
+    SELECT e.id_estudiante, e.nombres, e.apellidos, e.correo_institucional, e.genero, 
+           e.id_nivel, e.id_especialidad, c.id_club, c.nombre_club, n.nombre_nivel
+    FROM estudiantes e LEFT JOIN inscripciones i ON e.id_estudiante = i.id_estudiante
+    LEFT JOIN clubes c ON i.id_club = c.id_club LEFT JOIN niveles n ON e.id_nivel = n.id_nivel
+    WHERE e.nombres LIKE %s OR e.apellidos LIKE %s OR e.correo_institucional LIKE %s LIMIT 10
+    """, (like_query, like_query, like_query))
+    return {"resultados": cursor.fetchall()}
+
+
+@app.route("/verificar_correo")
+def verificar_correo():
+    """API para verificar si un correo ya está registrado"""
+    correo = request.args.get("correo", "").lower().strip()
+    if not correo:
+        return {"registrado": False}
+    
+    cursor.execute("SELECT COUNT(*) as total FROM estudiantes WHERE correo_institucional = %s", (correo,))
+    resultado = cursor.fetchone()
+    return {"registrado": resultado["total"] > 0}
+
+
+@app.route("/get_clubes_por_nivel")
+def get_clubes_por_nivel():
+    """API para obtener clubes filtrados por nivel para el reporte avanzado"""
+    id_nivel = request.args.get("id_nivel", "todos")
+    if id_nivel == "todos":
+        cursor.execute("SELECT id_club, nombre_club FROM clubes ORDER BY nombre_club")
+    else:
+        cursor.execute("SELECT id_club, nombre_club FROM clubes WHERE id_nivel = %s ORDER BY nombre_club", (id_nivel,))
+    return {"clubes": cursor.fetchall()}
+
+
+def obtener_datos_informe(tipo, filtro=None, filtros_avanzados=None):
+    """
+    Obtiene los datos de la base de datos según el tipo de informe y el filtro.
+    tipo: 'nivel' | 'club' | 'especialidad' | 'avanzado'
+    """
+    sql = """
+        SELECT e.nombres, e.apellidos, e.correo_institucional, e.genero,
+               n.nombre_nivel, c.nombre_club, c.tutor, esp.nombre_especialidad
+        FROM estudiantes e
+        JOIN niveles n ON e.id_nivel = n.id_nivel
+        JOIN inscripciones i ON e.id_estudiante = i.id_estudiante
+        JOIN clubes c ON i.id_club = c.id_club
+        JOIN especialidades esp ON e.id_especialidad = esp.id_especialidad
+    """
+    params = []
+    where_clauses = []
+    
+    if tipo == 'avanzado' and filtros_avanzados:
+        if filtros_avanzados.get('nivel') != 'todos':
+            where_clauses.append("e.id_nivel = %s")
+            params.append(filtros_avanzados['nivel'])
+        if filtros_avanzados.get('club') != 'todos':
+            where_clauses.append("c.id_club = %s")
+            params.append(filtros_avanzados['club'])
+        if filtros_avanzados.get('especialidad') != 'todos':
+            where_clauses.append("e.id_especialidad = %s")
+            params.append(filtros_avanzados['especialidad'])
+    elif filtro and filtro != 'todos':
+        if tipo == 'nivel':
+            where_clauses.append("e.id_nivel = %s")
+            params.append(filtro)
+        elif tipo == 'club':
+            where_clauses.append("c.id_club = %s")
+            params.append(filtro)
+        elif tipo == 'especialidad':
+            where_clauses.append("e.id_especialidad = %s")
+            params.append(filtro)
+
+    if where_clauses:
+        sql += " WHERE " + " AND ".join(where_clauses)
+
+    sql += " ORDER BY e.apellidos, e.nombres"
+    cursor.execute(sql, tuple(params))
+    return cursor.fetchall()
+
+
+@app.route('/informe/<formato>/<tipo>')
+def informe(formato, tipo):
+    """Genera y descarga informes en PDF o Excel"""
+    if "admin" not in session:
+        return redirect("/login")
+        
+    if tipo == 'avanzado':
+        filtros = {
+            'nivel': request.args.get('nivel', 'todos'),
+            'club': request.args.get('club', 'todos'),
+            'especialidad': request.args.get('especialidad', 'todos')
+        }
+        datos = obtener_datos_informe('avanzado', filtros_avanzados=filtros)
+        
+        # Construir título avanzado
+        partes = []
+        if filtros['nivel'] != 'todos':
+            cursor.execute("SELECT nombre_nivel FROM niveles WHERE id_nivel = %s", (filtros['nivel'],))
+            res = cursor.fetchone()
+            if res: partes.append(res['nombre_nivel'])
+        if filtros['club'] != 'todos':
+            cursor.execute("SELECT nombre_club FROM clubes WHERE id_club = %s", (filtros['club'],))
+            res = cursor.fetchone()
+            if res: partes.append(res['nombre_club'])
+        if filtros['especialidad'] != 'todos':
+            cursor.execute("SELECT nombre_especialidad FROM especialidades WHERE id_especialidad = %s", (filtros['especialidad'],))
+            res = cursor.fetchone()
+            if res: partes.append(res['nombre_especialidad'])
+            
+        filtro_nombre = " + ".join(partes) if partes else "Todos los registros"
+        titulo = f"Reporte Personalizado: {filtro_nombre}"
+    else:
+        filtro = request.args.get('filtro', 'todos')
+        datos = obtener_datos_informe(tipo, filtro)
+        
+        # Construir el título dinámico
+        filtro_nombre = "Todos"
+        if filtro != 'todos':
+            if tipo == 'nivel':
+                cursor.execute("SELECT nombre_nivel FROM niveles WHERE id_nivel = %s", (filtro,))
+                res = cursor.fetchone()
+                filtro_nombre = res['nombre_nivel'] if res else filtro
+            elif tipo == 'club':
+                cursor.execute("SELECT nombre_club FROM clubes WHERE id_club = %s", (filtro,))
+                res = cursor.fetchone()
+                filtro_nombre = res['nombre_club'] if res else filtro
+            elif tipo == 'especialidad':
+                cursor.execute("SELECT nombre_especialidad FROM especialidades WHERE id_especialidad = %s", (filtro,))
+                res = cursor.fetchone()
+                filtro_nombre = res['nombre_especialidad'] if res else filtro
+
+        titulo = f"Reporte por {tipo.capitalize()}: {filtro_nombre}"
+    
+    if formato == 'pdf':
+        report_type = tipo if tipo != 'avanzado' else 'nivel'
+        return generar_pdf(datos, titulo, report_type)
+    
+    report_type = tipo if tipo != 'avanzado' else 'nivel'
+    return generar_excel(datos, titulo, report_type)
+
+
+@app.context_processor
+def utility_processor():
+    """Función para asignar íconos automáticamente según el nombre del club"""
+    def get_club_icon(nombre_club):
+        n = nombre_club.lower()
+        if any(x in n for x in ['compu', 'sist', 'prog', 'tec', 'robot']):
+            return '💻'
+        if any(x in n for x in ['fut', 'socc', 'depor', 'gym']):
+            return '⚽'
+        if any(x in n for x in ['mus', 'band', 'coro', 'guitar']):
+            return '🎵'
+        if any(x in n for x in ['art', 'pint', 'dibuj']):
+            return '🎨'
+        if any(x in n for x in ['cien', 'quim', 'biol']):
+            return '🔬'
+        if any(x in n for x in ['lect', 'libr', 'bibli']):
+            return '📚'
+        if any(x in n for x in ['teat', 'actua', 'cine']):
+            return '🎭'
+        return '✨'
+    return dict(get_club_icon=get_club_icon)
+
+
+if __name__ == "__main__":
+    # Fix database constraints
+    try:
+        temp_conn = get_connection()
+        if temp_conn:
+            temp_cursor = temp_conn.cursor()
+            
+            # Remove unique_club_por_nivel
+            try:
+                temp_cursor.execute("ALTER TABLE clubes DROP INDEX unique_club_por_nivel")
+                print("Constraint unique_club_por_nivel removed.")
+            except: pass
+            
+            # Add unique_tutor
+            try:
+                temp_cursor.execute("ALTER TABLE clubes ADD UNIQUE INDEX unique_tutor (tutor)")
+                print("Constraint unique_tutor added.")
+            except: pass
+            
+            temp_conn.commit()
+            temp_cursor.close()
+            temp_conn.close()
+    except Exception as e:
+        print(f"DB Fix Error: {e}")
+
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)

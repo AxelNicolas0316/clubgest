@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tu Recomendación — ClubGest</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --navy:  #0a1628;
+            --blue:  #0d2a5e;
+            --gold:  #d4a017;
+            --gold2: #f0c040;
+            --red:   #c0272d;
+            --muted: #7a9cc4;
+            --white: #ffffff;
+            --card:  #0d1e38;
+            --border: rgba(255,255,255,0.07);
+        }
+
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--red), var(--gold), var(--gold2), var(--gold), var(--red));
+            background-size: 300% 100%; animation: glow-line 5s linear infinite;
+            box-shadow: 0 0 15px rgba(212,160,23,0.4); z-index: 9999;
+        }
+        @keyframes glow-line { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--navy);
+            color: var(--white);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Fondo con cuadr\u00edcula decorativa y efectos visuales */
+        .bg-grid {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(212,160,23,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(212,160,23,0.025) 1px, transparent 1px);
+            background-size: 48px 48px;
+        }
+        .orb { position: fixed; border-radius: 50%; pointer-events: none; z-index: 0; }
+        .orb1 { width: 600px; height: 600px; top: -200px; right: -150px;
+                background: radial-gradient(circle, rgba(13,42,94,0.55) 0%, transparent 70%); }
+        .orb2 { width: 500px; height: 500px; bottom: -120px; left: -100px;
+                background: radial-gradient(circle, rgba(192,39,45,0.08) 0%, transparent 70%); }
+
+        /* \u00c1rea principal donde se muestran las preguntas */
+        .page {
+            position: relative; z-index: 1;
+            max-width: 1200px; margin: 0 auto;
+            padding: 52px 32px 100px;
+        }
+
+        /* Encabezado principal con bienvenida y t\u00edtulo */
+        .hero {
+            text-align: center; margin-bottom: 56px;
+            animation: fadein 0.5s ease both;
+        }
+        .hero-eyebrow {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: rgba(212,160,23,0.1); border: 1px solid rgba(212,160,23,0.25);
+            color: var(--gold2); font-size: 11px; font-weight: 700;
+            letter-spacing: 2.5px; text-transform: uppercase;
+            padding: 6px 18px; border-radius: 50px; margin-bottom: 20px;
+            animation: pulse-border 2.5s ease-in-out infinite;
+        }
+        @keyframes pulse-border {
+            0%,100% { box-shadow: 0 0 0 0 rgba(212,160,23,0.3); }
+            50%      { box-shadow: 0 0 0 8px rgba(212,160,23,0); }
+        }
+        .hero h1 {
+            font-family: 'Sora', sans-serif;
+            font-size: clamp(28px, 4.5vw, 46px); font-weight: 800;
+            color: var(--white); line-height: 1.1; margin-bottom: 14px;
+        }
+        .hero h1 em { color: var(--gold2); font-style: normal; }
+        .hero p { font-size: 15px; color: var(--muted); }
+
+        /* Secci\u00f3n que muestra el an\u00e1lisis de respuestas y recomendaciones */
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 22px;
+            margin-bottom: 56px;
+        }
+
+        /* Profile card */
+        .profile-card {
+            background: var(--card);
+            border: 1.5px solid rgba(212,160,23,0.2);
+            border-radius: 24px; padding: 36px 28px;
+            text-align: center; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            position: relative; overflow: hidden;
+            animation: fadein 0.5s 0.1s ease both;
+        }
+        .profile-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 2.5px;
+            background: linear-gradient(90deg, var(--red), var(--gold), var(--gold2));
+        }
+        .profile-card::after {
+            content: '';
+            position: absolute; bottom: -60px; right: -60px;
+            width: 160px; height: 160px; border-radius: 50%;
+            border: 30px solid rgba(212,160,23,0.04);
+        }
+
+        .profile-big-icon {
+            font-size: 64px; margin-bottom: 18px;
+            filter: drop-shadow(0 0 20px rgba(212,160,23,0.35));
+            animation: icon-pulse 2.5s ease-in-out infinite;
+        }
+        @keyframes icon-pulse {
+            0%,100% { filter: drop-shadow(0 0 12px rgba(212,160,23,0.3)); transform: scale(1); }
+            50%      { filter: drop-shadow(0 0 28px rgba(212,160,23,0.6)); transform: scale(1.06); }
+        }
+
+        .profile-label {
+            font-size: 10.5px; font-weight: 700; letter-spacing: 2px;
+            text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+        }
+        .profile-cat {
+            font-family: 'Sora', sans-serif;
+            font-size: 26px; font-weight: 800; color: var(--gold2);
+            margin-bottom: 10px;
+        }
+        .profile-pct {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px; font-weight: 600; color: var(--muted);
+        }
+        .profile-pct strong {
+            color: var(--gold2); font-size: 22px;
+        }
+
+        /* Stats card */
+        .stats-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 24px; padding: 32px 36px;
+            animation: fadein 0.5s 0.15s ease both;
+        }
+        .stats-card-title {
+            font-family: 'Sora', sans-serif;
+            font-size: 15px; font-weight: 700; color: var(--white);
+            margin-bottom: 28px;
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .interest-row { margin-bottom: 20px; }
+        .interest-row:last-child { margin-bottom: 0; }
+        .interest-meta {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 9px;
+        }
+        .interest-name {
+            display: flex; align-items: center; gap: 9px;
+            font-size: 13.5px; font-weight: 600; color: var(--white);
+        }
+        .interest-score {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px; font-weight: 600; color: var(--gold2);
+        }
+        .interest-track {
+            height: 7px; background: rgba(255,255,255,0.06);
+            border-radius: 10px; overflow: hidden;
+        }
+        .interest-fill {
+            height: 100%; border-radius: 10px; width: 0;
+            background: linear-gradient(90deg, var(--gold), var(--gold2));
+            box-shadow: 0 0 10px rgba(212,160,23,0.35);
+            transition: width 1.2s cubic-bezier(0.34,1.56,0.64,1);
+        }
+
+        /* ════════════════════
+           SECTION TITLES
+        ════════════════════ */
+        .section-head {
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 28px;
+        }
+        .section-head h2 {
+            font-family: 'Sora', sans-serif;
+            font-size: 20px; font-weight: 800; color: var(--white);
+        }
+        .section-head h2 em { color: var(--gold2); font-style: normal; }
+        .section-divider {
+            flex: 1; height: 1px;
+            background: linear-gradient(90deg, rgba(212,160,23,0.3), transparent);
+        }
+
+        /* ════════════════════
+           CLUB CARDS GRID
+        ════════════════════ */
+
+        /* Grilla de tarjetas mostrando los clubes recomendados */
+        .clubs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 22px; margin-bottom: 20px;
+        }
+
+        .club-card {
+            background: var(--card);
+            border-radius: 22px;
+            border: 1.5px solid rgba(255,255,255,0.07);
+            overflow: hidden;
+            display: flex; flex-direction: column;
+            position: relative;
+            transition: transform 0.28s cubic-bezier(0.4,0,0.2,1),
+                        border-color 0.28s, box-shadow 0.28s;
+        }
+        /* Glow border effect */
+        .club-card::before {
+            content: '';
+            position: absolute; inset: -1px; border-radius: 22px;
+            background: linear-gradient(135deg,
+                rgba(212,160,23,0) 0%, rgba(212,160,23,0.6) 50%,
+                rgba(192,39,45,0.4) 100%);
+            z-index: 0; opacity: 0; transition: opacity 0.3s;
+        }
+        .club-card::after {
+            content: ''; position: absolute; inset: 1.5px;
+            border-radius: 21px; background: var(--card); z-index: 1;
+        }
+        .club-card:hover:not(.full-club) {
+            transform: translateY(-7px);
+            box-shadow: 0 22px 52px rgba(0,0,0,0.45), 0 0 40px rgba(212,160,23,0.12);
+        }
+        .club-card:hover:not(.full-club)::before { opacity: 1; }
+        .club-card.featured {
+            border-color: rgba(212,160,23,0.35);
+        }
+        .club-card.full-club {
+            opacity: 0.45; cursor: not-allowed;
+        }
+        .club-card.full-club:hover { transform: none; box-shadow: none; }
+        .club-card.full-club::before { display: none; }
+
+        .card-inner { position: relative; z-index: 2; display: flex; flex-direction: column; height: 100%; }
+
+        /* Image */
+        .card-img {
+            width: 100%; height: 170px;
+            overflow: hidden; position: relative; flex-shrink: 0;
+        }
+        .card-img img {
+            width: 100%; height: 100%; object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        .club-card:hover:not(.full-club) .card-img img { transform: scale(1.06); }
+        .card-img::after {
+            content: '';
+            position: absolute; bottom: 0; left: 0; right: 0; height: 65%;
+            background: linear-gradient(to top, var(--card), transparent);
+        }
+        .card-placeholder {
+            width: 100%; height: 140px;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, rgba(13,42,94,0.8), rgba(10,22,40,0.9));
+            font-size: 50px; flex-shrink: 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* Badges */
+        .badge-featured {
+            position: absolute; top: 14px; left: 14px; z-index: 10;
+            background: linear-gradient(135deg, var(--gold), var(--gold2));
+            color: var(--navy); font-size: 10px; font-weight: 800;
+            padding: 4px 11px; border-radius: 50px;
+            text-transform: uppercase; letter-spacing: 1px;
+            box-shadow: 0 4px 14px rgba(212,160,23,0.4);
+        }
+
+        /* Card body */
+        .card-body {
+            padding: 18px 20px 22px;
+            display: flex; flex-direction: column; flex: 1;
+        }
+        .card-title {
+            font-family: 'Sora', sans-serif;
+            font-size: 20px; font-weight: 800; color: var(--white);
+            margin-bottom: 8px; transition: all 0.2s;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.4), 0 0 30px rgba(212, 160, 23, 0.2);
+            letter-spacing: -0.5px;
+        }
+        .club-card:hover:not(.full-club) .card-title { color: var(--gold2); }
+        .card-desc {
+            font-size: 12.5px; color: rgba(122,156,196,0.8);
+            line-height: 1.65; margin-bottom: 16px;
+            display: -webkit-box; -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical; overflow: hidden;
+            flex-grow: 1;
+        }
+
+        /* Stats box */
+        .card-stats {
+            background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 13px; padding: 13px 15px; margin-bottom: 16px;
+        }
+        .srow {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 5px 0;
+        }
+        .srow + .srow { border-top: 1px solid rgba(255,255,255,0.05); margin-top: 4px; padding-top: 9px; }
+        .slabel { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+        .slabel span { font-size: 14px; }
+        .sval { font-size: 13px; font-weight: 700; color: var(--gold2); font-family: 'Sora', sans-serif; }
+        .sval.w { color: var(--white); }
+
+        .cupo-wrap { margin-top: 10px; }
+        .cupo-nums {
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: var(--muted); margin-bottom: 6px;
+        }
+        .cupo-nums strong { color: var(--white); font-weight: 700; }
+        .cupo-track { height: 5px; background: rgba(255,255,255,0.07); border-radius: 4px; overflow: hidden; }
+        .cupo-fill {
+            height: 100%; border-radius: 4px;
+            background: linear-gradient(90deg, var(--gold), var(--gold2));
+            box-shadow: 0 0 8px rgba(212,160,23,0.35);
+        }
+        .cupo-fill.warning { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .cupo-fill.danger  { background: linear-gradient(90deg, #c0272d, #ef4444); box-shadow: 0 0 8px rgba(192,39,45,0.4); }
+
+        .full-msg {
+            background: rgba(192,39,45,0.1); border: 1px solid rgba(192,39,45,0.22);
+            border-radius: 9px; padding: 9px 14px;
+            font-size: 12px; font-weight: 700; color: #ff8888;
+            text-align: center; margin-bottom: 14px;
+        }
+
+        /* Inscribirse button */
+        .btn-inscribir {
+            width: 100%; padding: 13px;
+            background: linear-gradient(135deg, var(--gold), var(--gold2));
+            border: none; border-radius: 11px;
+            color: var(--navy); font-size: 13px; font-weight: 800;
+            font-family: 'Sora', sans-serif; letter-spacing: 1px;
+            text-transform: uppercase; cursor: pointer;
+            position: relative; overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-inscribir::after {
+            content: ''; position: absolute; top: -50%; left: -100%; width: 100%; height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: rotate(25deg); transition: none;
+        }
+        .btn-inscribir:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(212,160,23,0.5), 0 0 15px rgba(212,160,23,0.2);
+        }
+        .btn-inscribir:hover:not(:disabled)::after { animation: shimmer 1.5s infinite; }
+
+        @keyframes shimmer { 0% { left: -100%; } 100% { left: 100%; } }
+
+        .btn-inscribir:disabled {
+            background: #2a2a3a; color: rgba(255,255,255,0.15);
+            cursor: not-allowed; box-shadow: none; opacity: 1;
+        }
+
+        /* ════════════════════
+           EXPLORE MORE
+        ════════════════════ */
+        .explore-wrap {
+            text-align: center; margin: 48px 0 20px;
+            animation: fadein 0.5s 0.6s ease both;
+        }
+        .explore-wrap p { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
+        /* Explore button */
+        .btn-explore {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--white);
+            padding: 16px 36px;
+            border-radius: 14px;
+            font-family: 'Sora', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            position: relative; overflow: hidden;
+        }
+        .btn-explore::after {
+            content: ''; position: absolute; top: -50%; left: -100%; width: 100%; height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: rotate(25deg); transition: none;
+        }
+        .btn-explore:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(212, 160, 23, 0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3), 0 0 15px rgba(212, 160, 23, 0.1);
+        }
+        .btn-explore:hover::after { animation: shimmer 1.5s infinite; }
+
+        /* Other clubs (hidden) */
+        .other-clubs { display: none; margin-top: 48px; }
+        .other-clubs.show { display: block; animation: fadein 0.4s ease both; }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center; padding: 52px 24px;
+            background: var(--card); border: 1px dashed rgba(255,255,255,0.1);
+            border-radius: 22px; margin-bottom: 40px;
+        }
+        .empty-state p { color: var(--muted); font-size: 14px; }
+        .empty-state p + p { color: var(--gold2); margin-top: 10px; font-size: 13px; }
+
+        /* Loading overlay */
+        .loading-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(10,22,40,0.9); z-index: 1000;
+            align-items: center; justify-content: center;
+            flex-direction: column; gap: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .loading-overlay.active { display: flex; }
+        .spinner {
+            width: 48px; height: 48px; border-radius: 50%;
+            border: 3px solid rgba(212,160,23,0.2);
+            border-top-color: var(--gold2);
+            animation: spin 0.9s linear infinite;
+        }
+        .loading-text {
+            font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 700;
+            color: var(--gold2); letter-spacing: 2px; text-transform: uppercase;
+        }
+
+        /* Animations */
+        @keyframes fadein {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .clubs-grid .club-card { animation: fadein 0.45s ease both; }
+        .clubs-grid .club-card:nth-child(1) { animation-delay: 0.05s; }
+        .clubs-grid .club-card:nth-child(2) { animation-delay: 0.12s; }
+        .clubs-grid .club-card:nth-child(3) { animation-delay: 0.19s; }
+        .clubs-grid .club-card:nth-child(4) { animation-delay: 0.26s; }
+
+        @media (max-width: 860px) {
+            .analysis-grid { grid-template-columns: 1fr; }
+            .page { padding: 32px 20px 80px; }
+        }
+        @media (max-width: 600px) {
+            .clubs-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Procesando tu inscripción...</div>
+</div>
+
+<div class="page">
+
+    <!-- HERO -->
+    <div class="hero">
+        <div class="hero-eyebrow">⚡ Análisis de perfil finalizado</div>
+        <h1>Resultados de tu<br><em>Recomendación</em></h1>
+        <p>Basado en tus respuestas encontramos los clubs que mejor se adaptan a ti</p>
+    </div>
+
+    <!-- ANÁLISIS -->
+    <div class="analysis-grid">
+
+        <!-- Perfil dominante -->
+        <div class="profile-card">
+            <div class="profile-big-icon">
+                {% if recomendacion.categoria == 'Deportivo' %}🏃‍♂️
+                {% elif recomendacion.categoria == 'Cultural' %}🎨
+                {% elif recomendacion.categoria == 'Tecnológico' %}💻
+                {% else %}📚{% endif %}
+            </div>
+            <div class="profile-label">Tu perfil dominante</div>
+            <div class="profile-cat">{{ recomendacion.categoria }}</div>
+            <div class="profile-pct">
+                Compatibilidad <strong>{{ recomendacion.porcentajes[recomendacion.categoria] }}%</strong>
+            </div>
+        </div>
+
+        <!-- Desglose de intereses -->
+        <div class="stats-card">
+            <div class="stats-card-title">
+                <span>📈</span> Desglose de Intereses
+            </div>
+            {% for cat, score in recomendacion.porcentajes.items() %}
+            <div class="interest-row">
+                <div class="interest-meta">
+                    <div class="interest-name">
+                        {% if cat == 'Deportivo' %}⚽
+                        {% elif cat == 'Cultural' %}🎭
+                        {% elif cat == 'Tecnológico' %}🤖
+                        {% else %}📖{% endif %}
+                        {{ cat }}
+                    </div>
+                    <div class="interest-score">{{ score }}%</div>
+                </div>
+                <div class="interest-track">
+                    <div class="interest-fill" data-w="{{ score }}"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+
+    <!-- CLUBS RECOMENDADOS -->
+    <div class="section-head" style="animation: fadein 0.5s 0.25s ease both;">
+        <h2>🌟 Recomendaciones <em>especiales</em> para ti</h2>
+        <div class="section-divider"></div>
+    </div>
+
+    {% if clubes_recomendados %}
+    <div class="clubs-grid">
+        {% for club in clubes_recomendados %}
+        {% set pct = ((club.cupo_maximo - club.cupos_restantes) / club.cupo_maximo * 100) | int if club.cupo_maximo > 0 else 0 %}
+        {% set icons = ['⚽','🏀','🎨','💻','🎵','🔬','📷','🎭','📚','🌿','🤖','♟️','🥊','🎯','🏊','✏️'] %}
+
+        <div class="club-card featured {% if club.cupos_restantes <= 0 %}full-club{% endif %}">
+            <div class="card-inner">
+
+                <div class="badge-featured">✦ Ideal para ti</div>
+
+                {% if club.imagen %}
+                <div class="card-img">
+                    <img src="{{ url_for('static', filename='uploads/clubes/' + club.imagen) }}"
+                         alt="{{ club.nombre_club }}">
+                </div>
+                {% else %}
+                <div class="card-placeholder">{{ icons[loop.index0 % 16] }}</div>
+                {% endif %}
+
+                <div class="card-body">
+                    <div class="card-title">{{ club.nombre_club }}</div>
+                    <p class="card-desc">
+                        {{ club.descripcion if club.descripcion else "Este club encaja perfectamente con tu perfil " + recomendacion.categoria + ". ¡Únete y desarrolla tus habilidades al máximo!" }}
+                    </p>
+
+                    <div class="card-stats">
+                        <div class="srow">
+                            <div class="slabel"><span>👨‍🏫</span> Tutor</div>
+                            <div class="sval">{{ club.tutor if club.tutor else 'Por asignar' }}</div>
+                        </div>
+                        <div class="srow">
+                            <div class="slabel"><span>👥</span> Inscritos</div>
+                            <div class="sval w">{{ club.inscritos }}</div>
+                        </div>
+                        <div class="cupo-wrap">
+                            <div class="cupo-nums">
+                                <span>📊 Cupos</span>
+                                <span><strong>{{ club.cupos_restantes }}</strong> de {{ club.cupo_maximo }}</span>
+                            </div>
+                            <div class="cupo-track">
+                                <div class="cupo-fill {% if pct >= 80 %}danger{% elif pct >= 60 %}warning{% endif %}"
+                                     style="width:{{ pct }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if club.cupos_restantes <= 0 %}
+                    <div class="full-msg">🔒 Club lleno, puedes escoger otro 😊</div>
+                    {% endif %}
+
+                    <button class="btn-inscribir"
+                            {% if club.cupos_restantes <= 0 %}disabled{% endif %}
+                            onclick="inscribir({{ club.id_club }})">
+                        {% if club.cupos_restantes > 0 %}✦ Inscribirme en este club{% else %}Sin cupos disponibles{% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+        <p>No encontramos clubs disponibles para tu nivel en este momento.</p>
+        <p>Asegúrate de que el administrador haya creado clubs para tu nivel.</p>
+    </div>
+    {% endif %}
+
+    <!-- VER TODOS -->
+    <div class="explore-wrap">
+        <p>¿No te convencen estas opciones? Tenemos más clubs para ti.</p>
+        <button class="btn-explore" onclick="showAll()">
+            🔍 Ver todos los clubs disponibles
+        </button>
+    </div>
+
+    <!-- TODOS LOS CLUBS (oculto) -->
+    <div class="other-clubs" id="otherClubs">
+        <div class="section-head">
+            <h2>📂 Todos los clubs <em>disponibles</em></h2>
+            <div class="section-divider"></div>
+        </div>
+        <div class="clubs-grid">
+            {% for club in clubes_disponibles %}
+            {% set pct = ((club.cupo_maximo - club.cupos_restantes) / club.cupo_maximo * 100) | int if club.cupo_maximo > 0 else 0 %}
+            {% set icons = ['⚽','🏀','🎨','💻','🎵','🔬','📷','🎭','📚','🌿','🤖','♟️','🥊','🎯','🏊','✏️'] %}
+
+            <div class="club-card {% if club.cupos_restantes <= 0 %}full-club{% endif %}">
+                <div class="card-inner">
+                    {% if club.imagen %}
+                    <div class="card-img">
+                        <img src="{{ url_for('static', filename='uploads/clubes/' + club.imagen) }}"
+                             alt="{{ club.nombre_club }}">
+                    </div>
+                    {% else %}
+                    <div class="card-placeholder">{{ icons[loop.index0 % 16] }}</div>
+                    {% endif %}
+
+                    <div class="card-body">
+                        <div class="card-title">{{ club.nombre_club }}</div>
+                        <p class="card-desc">
+                            {{ club.descripcion if club.descripcion else "Explora nuevas áreas y desarrolla diferentes talentos." }}
+                        </p>
+
+                        <div class="card-stats">
+                            <div class="srow">
+                                <div class="slabel"><span>👨‍🏫</span> Tutor</div>
+                                <div class="sval">{{ club.tutor if club.tutor else 'Por asignar' }}</div>
+                            </div>
+                            <div class="srow">
+                                <div class="slabel"><span>👥</span> Inscritos</div>
+                                <div class="sval w">{{ club.inscritos }}</div>
+                            </div>
+                            <div class="cupo-wrap">
+                                <div class="cupo-nums">
+                                    <span>📊 Cupos</span>
+                                    <span><strong>{{ club.cupos_restantes }}</strong> de {{ club.cupo_maximo }}</span>
+                                </div>
+                                <div class="cupo-track">
+                                    <div class="cupo-fill {% if pct >= 80 %}danger{% elif pct >= 60 %}warning{% endif %}"
+                                         style="width:{{ pct }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if club.cupos_restantes <= 0 %}
+                        <div class="full-msg">🔒 Club lleno, puedes escoger otro 😊</div>
+                        {% endif %}
+
+                        <button class="btn-inscribir"
+                                {% if club.cupos_restantes <= 0 %}disabled{% endif %}
+                                onclick="inscribir({{ club.id_club }})">
+                            {% if club.cupos_restantes > 0 %}✦ Elegir este club{% else %}Sin cupos disponibles{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Animar barras de interés
+    window.addEventListener('load', () => {
+        document.querySelectorAll('.interest-fill').forEach(el => {
+            const w = el.getAttribute('data-w');
+            setTimeout(() => el.style.width = w + '%', 200);
+        });
+    });
+
+    function inscribir(id) {
+        document.getElementById('loadingOverlay').classList.add('active');
+        const f = document.createElement('form');
+        f.method = 'POST'; f.action = '/inscribir_club';
+        const inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = 'club'; inp.value = id;
+        f.appendChild(inp); document.body.appendChild(f); f.submit();
+    }
+
+    function showAll() {
+        const el = document.getElementById('otherClubs');
+        el.classList.add('show');
+        document.querySelector('.explore-wrap').style.display = 'none';
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
+</script>
+
+</body>
+</html>

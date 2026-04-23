@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informes — ClubGest · Don Bosco</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800;900&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        /* Estilos para animaciones de carga mientras se cargan los datos */
+        .skeleton {
+            background: linear-gradient(90deg, var(--card2) 25%, var(--blue) 50%, var(--card2) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+            border-radius: 4px;
+        }
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .skeleton-text { height: 14px; margin-bottom: 8px; width: 100%; }
+        .skeleton-title { height: 20px; margin-bottom: 12px; width: 60%; }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --navy:   #060f1e;
+            --navy2:  #0a1628;
+            --blue:   #0d2a5e;
+            --gold:   #d4a017;
+            --gold2:  #f0c040;
+            --gold3:  #ffd96a;
+            --red:    #c0272d;
+            --muted:  #7a9cc4;
+            --white:  #ffffff;
+            --card:   #0b1829;
+            --card2:  #0e2040;
+            --border: rgba(255,255,255,0.07);
+            --glow-gold: rgba(212,160,23,0.25);
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--navy);
+            color: var(--white);
+            min-height: 100vh;
+            display: flex; flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* ══ ANIMATED BACKGROUND ══ */
+        .bg-canvas {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            overflow: hidden;
+        }
+        .bg-mesh {
+            position: absolute; inset: 0;
+            background-image:
+                linear-gradient(rgba(212,160,23,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(212,160,23,0.03) 1px, transparent 1px);
+            background-size: 52px 52px;
+            animation: mesh-drift 25s linear infinite;
+        }
+        @keyframes mesh-drift { to { background-position: 52px 52px; } }
+
+        /* ══ NAVBAR ══ */
+        .navbar {
+            position: sticky; top: 0; z-index: 900;
+            height: 68px;
+            background: rgba(6,15,30,0.95);
+            border-bottom: 1px solid rgba(255,255,255,0.055);
+            backdrop-filter: blur(24px);
+            display: flex; align-items: center;
+            padding: 0 28px; gap: 10px;
+        }
+        .navbar::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, var(--red), var(--gold), var(--gold2), var(--gold3), var(--red));
+            background-size: 300% 100%; animation: glow-line 5s linear infinite;
+            box-shadow: 0 0 15px rgba(212,160,23,0.4);
+        }
+        @keyframes glow-line { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+
+        .nav-brand {
+            display: flex; align-items: center; gap: 11px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 14px; padding: 7px 15px 7px 7px;
+            text-decoration: none; margin-right: 14px; flex-shrink: 0;
+            transition: border-color 0.2s;
+        }
+        .nav-brand:hover { border-color: rgba(212,160,23,0.3); }
+        .nav-logo {
+            width: 42px; height: 42px; border-radius: 50%;
+            background: white; border: 2px solid var(--gold);
+            box-shadow: 0 0 16px rgba(212,160,23,0.4);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; padding: 3px;
+        }
+        .nav-logo img { width: 100%; height: 100%; object-fit: contain; }
+        .nav-brand-name {
+            font-family: 'Sora', sans-serif;
+            font-size: 16px; font-weight: 900; color: var(--white); line-height: 1;
+            letter-spacing: -0.5px;
+        }
+        .nav-brand-name em { color: var(--gold2); font-style: normal; }
+        .nav-admin-pill {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: linear-gradient(135deg, var(--gold), var(--gold2));
+            color: var(--navy); padding: 2px 9px; border-radius: 20px;
+            font-size: 9px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.8px; margin-top: 3px;
+        }
+
+        .nav-links { display: flex; align-items: center; gap: 2px; flex: 1; }
+        .nav-link {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 15px; border-radius: 10px;
+            font-size: 13px; font-weight: 600; color: var(--muted);
+            text-decoration: none; transition: all 0.22s; white-space: nowrap;
+            position: relative; overflow: hidden;
+        }
+        .nav-link::before {
+            content: ''; position: absolute; top: -50%; left: -100%; width: 60%; height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transform: rotate(25deg); pointer-events: none; opacity: 0; transition: opacity 0.3s;
+        }
+        .nav-link:hover { color: var(--white); background: rgba(255,255,255,0.05); }
+        .nav-link:hover::before { opacity: 1; animation: shimmer 1.2s infinite; }
+        .nav-link.active {
+            color: var(--gold2); background: rgba(212,160,23,0.1);
+            border: 1px solid rgba(212,160,23,0.18);
+        }
+        .nav-link.active::after {
+            content: ''; position: absolute; bottom: -1px; left: 50%;
+            transform: translateX(-50%);
+            width: 16px; height: 2px; border-radius: 2px;
+            background: var(--gold2); box-shadow: 0 0 10px var(--gold2);
+        }
+
+        .nav-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+
+        /* ══ PAGE ══ */
+        .page {
+            position: relative; z-index: 1;
+            max-width: 1380px; margin: 0 auto;
+            padding: 32px 28px 100px; flex: 1;
+        }
+
+        /* ══ HERO HEADER ══ */
+        .hero-header {
+            background: linear-gradient(135deg, var(--card2) 0%, var(--card) 100%);
+            border: 1px solid rgba(212,160,23,0.12); border-radius: 24px;
+            padding: 32px 44px; margin-bottom: 28px;
+            position: relative; overflow: hidden;
+            display: flex; align-items: center; justify-content: space-between; gap: 30px;
+            animation: fadein 0.5s ease both;
+        }
+        .hero-logo-wrap {
+            width: 110px; height: 110px; border-radius: 30px;
+            background: white; border: 3px solid var(--gold);
+            box-shadow: 0 0 30px rgba(212,160,23,0.3);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; padding: 10px; flex-shrink: 0;
+            position: relative; z-index: 2;
+        }
+        .hero-logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
+        .hero-content { flex: 1; position: relative; z-index: 2; }
+        .hero-header::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, var(--red), var(--gold) 40%, var(--gold2) 70%, transparent);
+        }
+        /* Diagonal accent line */
+        .hero-header::after {
+            content: '';
+            position: absolute; top: -40px; right: 140px;
+            width: 2px; height: 200%;
+            background: linear-gradient(to bottom, transparent, rgba(212,160,23,0.08), transparent);
+            transform: rotate(15deg);
+        }
+        .hero-deco-circle {
+            position: absolute; right: -60px; bottom: -60px;
+            width: 200px; height: 200px; border-radius: 50%;
+            border: 30px solid rgba(212,160,23,0.04);
+        }
+        .hero-eyebrow {
+            font-size: 9.5px; font-weight: 800; letter-spacing: 3.5px;
+            text-transform: uppercase; color: var(--gold2);
+            display: flex; align-items: center; gap: 9px; margin-bottom: 10px;
+        }
+        .hero-eyebrow::before { content: ''; width: 24px; height: 2px; background: var(--gold2); border-radius: 1px; }
+        .hero-title {
+            font-family: 'Sora', sans-serif;
+            font-size: clamp(16px, 2.2vw, 24px); font-weight: 900; color: var(--white);
+            line-height: 1.1; margin-bottom: 7px; letter-spacing: -0.5px;
+        }
+        .hero-sub { font-size: 13px; color: var(--muted); }
+
+        .hero-right { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+        .hero-clock {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+            border-radius: 12px; padding: 10px 18px; text-align: right;
+        }
+        .hero-clock strong { color: var(--gold2); font-size: 22px; font-weight: 600; display: block; line-height: 1; }
+        .hero-clock span { font-size: 10px; color: rgba(122,156,196,0.55); margin-top: 3px; display: block; }
+
+        /* Secci\u00f3n para mostrar formularios de descarga de informes en PDF y Excel */
+        .informes-section { margin-top: 24px; }
+
+        .informes-header {
+            background: linear-gradient(135deg, rgba(13,42,94,0.8), rgba(11,24,41,0.9));
+            border: 1px solid rgba(212,160,23,0.2);
+            border-radius: 22px; padding: 28px 36px;
+            margin-bottom: 20px; position: relative; overflow: hidden;
+            animation: fadein 0.5s 0.3s ease both;
+        }
+        .informes-header::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--gold2), transparent);
+        }
+        .ih-eyebrow { font-size: 9px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: var(--gold2); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        .ih-eyebrow::before { content: ''; width: 20px; height: 2px; background: var(--gold2); }
+        .ih-title { font-family: 'Sora', sans-serif; font-size: clamp(18px, 2.5vw, 26px); font-weight: 900; color: var(--white); margin-bottom: 6px; letter-spacing: -0.5px; }
+        .ih-title em { color: var(--gold2); font-style: normal; }
+        .ih-sub { font-size: 13px; color: var(--muted); }
+
+        .informes-grid {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        .informe-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px; overflow: hidden;
+            animation: fadein 0.45s ease both;
+            transition: transform 0.28s, border-color 0.28s, box-shadow 0.28s;
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+        }
+        .informe-card::before {
+            content: '';
+            position: absolute; inset: -1px; border-radius: 20px;
+            background: linear-gradient(135deg, rgba(212,160,23,0) 0%, rgba(212,160,23,0.5) 50%, rgba(192,39,45,0.3) 100%);
+            z-index: 0; opacity: 0; transition: opacity 0.3s;
+        }
+        .informe-card::after {
+            content: ''; position: absolute; inset: 1.5px;
+            border-radius: 19px; background: var(--card); z-index: 1;
+        }
+        .informe-card:hover { transform: translateY(-6px); box-shadow: 0 18px 44px rgba(0,0,0,0.45), 0 0 30px rgba(212,160,23,0.1); }
+        .informe-card:hover::before { opacity: 1; }
+
+        .ic-inner { position: relative; z-index: 2; padding: 24px; }
+
+        .ic-icon-wrap {
+            width: 52px; height: 52px; border-radius: 15px; margin-bottom: 16px;
+            display: flex; align-items: center; justify-content: center; font-size: 22px;
+        }
+        .ic-icon-nivel { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); }
+        .ic-icon-club   { background: rgba(212,160,23,0.12); border: 1px solid rgba(212,160,23,0.25); }
+        .ic-icon-esp    { background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.25); }
+        .ic-icon-adv    { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.25); color: #f59e0b; }
+
+        .advanced-report-card { 
+            border-color: rgba(212,160,23,0.3); 
+            background: linear-gradient(145deg, var(--card), #0d1b2e);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+        .ic-filter-grid { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 20px; 
+            margin: 30px 0; 
+        }
+        
+        .ic-title { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 800; color: var(--white); margin-bottom: 5px; }
+        .ic-desc { font-size: 12px; color: var(--muted); line-height: 1.55; margin-bottom: 20px; }
+
+        .ic-filter {
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 12px; padding: 14px 16px; margin-bottom: 0;
+            transition: all 0.25s ease;
+        }
+        .ic-filter:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(212,160,23,0.3);
+            transform: translateY(-2px);
+        }
+        .ic-filter label { font-size: 9.5px; font-weight: 700; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; display: block; margin-bottom: 8px; }
+        .ic-filter select {
+            width: 100%; padding: 9px 12px 9px 12px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08); color: var(--white);
+            border-radius: 8px; font-size: 12.5px; font-family: 'DM Sans', sans-serif; outline: none; cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%237a9cc4'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+        }
+        .ic-filter select option {
+            background-color: var(--card2);
+            color: var(--white);
+        }
+
+        .ic-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .adv-ic-btns { 
+            display: flex; 
+            justify-content: center; 
+            gap: 20px; 
+            margin-top: 30px; 
+        }
+        .adv-ic-btns .btn-pdf, .adv-ic-btns .btn-excel { 
+            flex: 1; 
+            height: 56px;
+            font-size: 14px;
+            border-radius: 14px;
+        }
+
+        .btn-pdf, .btn-excel {
+            display: flex; align-items: center; justify-content: center; gap: 7px;
+            padding: 11px 10px; border-radius: 10px;
+            font-size: 12px; font-weight: 700;
+            font-family: 'Sora', sans-serif; text-transform: uppercase; letter-spacing: 0.8px;
+            cursor: pointer; text-decoration: none; transition: all 0.22s;
+            position: relative; overflow: hidden;
+        }
+
+        /* SHIMMER EFFECT ON HOVER */
+        .btn-pdf::after, .btn-excel::after, .btn-logout::after {
+            content: ''; position: absolute; top: -50%; left: -100%; width: 60%; height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: rotate(25deg); pointer-events: none; opacity: 0;
+        }
+
+        .btn-pdf:hover::after, .btn-excel:hover::after, .btn-logout:hover::after {
+            opacity: 1;
+            animation: shimmer 1.2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 150%; }
+        }
+
+        .btn-pdf { 
+            background: rgba(192,39,45,0.12); border: 1px solid rgba(192,39,45,0.28); color: #ff8888;
+            box-shadow: 0 0 10px rgba(192,39,45,0.05);
+        }
+        .btn-pdf:hover { 
+            background: rgba(192,39,45,0.25); transform: translateY(-2px); 
+            box-shadow: 0 0 25px rgba(192,39,45,0.45); 
+            border-color: rgba(192,39,45,0.6); color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.4);
+        }
+
+        .btn-excel { 
+            background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25); color: #4ade80;
+            box-shadow: 0 0 10px rgba(34,197,94,0.05);
+        }
+        .btn-excel:hover { 
+            background: rgba(34,197,94,0.2); transform: translateY(-2px); 
+            box-shadow: 0 0 25px rgba(34,197,94,0.45); 
+            border-color: rgba(34,197,94,0.6); color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.4);
+        }
+
+        .btn-logout {
+            display: flex; align-items: center; gap: 7px;
+            background: rgba(192,39,45,0.12); border: 1px solid rgba(192,39,45,0.28);
+            color: #ff8888; padding: 8px 16px; border-radius: 10px;
+            font-size: 12.5px; font-weight: 700; text-decoration: none; transition: all 0.2s;
+            position: relative; overflow: hidden;
+        }
+        .btn-logout:hover { 
+            background: rgba(192,39,45,0.25); transform: translateY(-1.5px); 
+            box-shadow: 0 0 20px rgba(192,39,45,0.35);
+            color: #fff;
+        }
+
+        .loading-overlay-mini {
+            position: absolute; inset: 0; background: rgba(6,15,30,0.7);
+            backdrop-filter: blur(4px); z-index: 10; display: none;
+            align-items: center; justify-content: center; border-radius: 12px;
+        }
+        .loading-overlay-mini.show { display: flex; animation: fadein 0.2s ease; }
+        .ic-filter.loading { opacity: 0.5; pointer-events: none; position: relative; }
+
+        @keyframes fadein { from { opacity: 0; transform: translateY(11px); } to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 900px) {
+            .ic-filter-grid { grid-template-columns: 1fr; }
+            .adv-ic-btns { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-canvas"><div class="bg-mesh"></div></div>
+
+<!-- ══ NAVBAR ══ -->
+<nav class="navbar">
+    <a href="/admin" class="nav-brand">
+        <div class="nav-logo">
+            <img src="/imagenes/don_bosco.png" onerror="this.src='https://donboscolatola.edu.ec/wp-content/uploads/2024/01/cropped-LOGO-DON-BOSCO.png';this.onerror=null;" alt="Logo">
+        </div>
+        <div>
+            <div class="nav-brand-name">Club<em>Gest</em></div>
+            <div class="nav-admin-pill"><i class="fas fa-shield-halved"></i> Admin</div>
+        </div>
+    </a>
+    <div class="nav-links">
+        <a href="/admin" class="nav-link"><i class="fas fa-chart-pie"></i><span>Dashboard</span></a>
+        <a href="/admin_inscripciones" class="nav-link"><i class="fas fa-layer-group"></i><span>Por Nivel</span></a>
+        <a href="/admin_clubes" class="nav-link"><i class="fas fa-users-rectangle"></i><span>Por Club</span></a>
+        <a href="/admin_Informes" class="nav-link active"><i class="fas fa-users-rectangle"></i><span>Informes</span></a>
+    </div>
+    <div class="nav-right">
+        <a href="/logout" class="btn-logout"><i class="fas fa-right-from-bracket"></i><span>Salir</span></a>
+    </div>
+</nav>
+
+<div class="page">
+
+    <!-- Hero -->
+    <div class="hero-header">
+        <div class="hero-logo-wrap">
+            <img src="/imagenes/logo_donbosco.jpg" onerror="this.src='https://donboscolatola.edu.ec/wp-content/uploads/2024/01/cropped-LOGO-DON-BOSCO.png';this.onerror=null;" alt="Logo">
+        </div>
+        <div class="hero-content">
+            <div class="hero-eyebrow">Panel de administración</div>
+            <div class="hero-title">Unidad Educativa Fiscomisional Salesiana</div>
+            <div class="hero-sub">Don Bosco La Tola · Sistema de Gestión de Clubes</div>
+        </div>
+        <div class="hero-right">
+            <div class="hero-clock">
+                <strong id="liveTime">--:--</strong>
+                <span id="liveDate">---</span>
+            </div>
+        </div>
+        <div class="hero-deco-circle"></div>
+    </div>
+
+    <div class="informes-section">
+        <div class="informes-grid">
+
+            <!-- REPORTE PERSONALIZADO -->
+            <div class="informe-card advanced-report-card">
+                <div class="ic-inner" style="padding: 40px;">
+                    <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 30px;">
+                        <div class="ic-icon-wrap ic-icon-adv" style="width: 70px; height: 70px; font-size: 32px; margin-bottom: 0;">
+                            <i class="fas fa-file-invoice"></i>
+                        </div>
+                        <div>
+                            <div class="ic-title" style="font-size: 24px; margin-bottom: 4px;">Generador de Reportes</div>
+                            <div class="ic-desc" style="font-size: 14px; margin-bottom: 0;">Configure los filtros para generar un informe detallado en formato PDF o Excel.</div>
+                        </div>
+                    </div>
+
+                    <div class="ic-filter-grid">
+                        <div class="ic-filter">
+                            <label>Nivel</label>
+                            <select id="adv-nivel" onchange="updateAdvClubes(this.value)">
+                                <option value="todos">Todos</option>
+                                {% for n in niveles %}
+                                <option value="{{ n.id_nivel }}">{{ n.nombre_nivel }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="ic-filter" id="adv-club-container">
+                            <label>Club</label>
+                            <select id="adv-club">
+                                <option value="todos">Todos</option>
+                                {% for club in clubes %}
+                                <option value="{{ club.id_club }}">{{ club.nombre_club }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="loading-overlay-mini" id="adv-club-loading">
+                                <div class="skeleton skeleton-text" style="width: 100%; height: 35px; margin: 0;"></div>
+                            </div>
+                        </div>
+                        <div class="ic-filter">
+                            <label>Especialidad</label>
+                            <select id="adv-esp">
+                                <option value="todos">Todas</option>
+                                {% for esp in especialidades %}
+                                <option value="{{ esp.id_especialidad }}">{{ esp.nombre_especialidad }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="adv-ic-btns">
+                        <a href="#" onclick="goInformeAvanzado('pdf'); return false;" class="btn-pdf">
+                            <i class="fas fa-file-pdf"></i> Generar PDF
+                        </a>
+                        <a href="#" onclick="goInformeAvanzado('excel'); return false;" class="btn-excel">
+                            <i class="fas fa-file-excel"></i> Generar Excel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateClock() {
+        const n = new Date();
+        document.getElementById('liveTime').textContent = n.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'});
+        document.getElementById('liveDate').textContent  = n.toLocaleDateString('es-EC',{weekday:'short',day:'numeric',month:'short'});
+    }
+    updateClock(); setInterval(updateClock,1000);
+
+    function goInformeAvanzado(formato) {
+        const params = new URLSearchParams({
+            nivel: document.getElementById('adv-nivel').value,
+            club: document.getElementById('adv-club').value,
+            especialidad: document.getElementById('adv-esp').value
+        });
+        window.location.href = `/informe/${formato}/avanzado?${params.toString()}`;
+    }
+
+    async function updateAdvClubes(nivelId) {
+        const container = document.getElementById('adv-club-container');
+        const loading = document.getElementById('adv-club-loading');
+        const select = document.getElementById('adv-club');
+        container.classList.add('loading');
+        loading.classList.add('show');
+        try {
+            const res = await fetch(`/get_clubes_por_nivel?id_nivel=${nivelId}`);
+            const data = await res.json();
+            let options = '<option value="todos">Todos</option>';
+            data.clubes.forEach(c => { options += `<option value="${c.id_club}">${c.nombre_club}</option>`; });
+            select.innerHTML = options;
+        } catch (e) { console.error(e); }
+        finally { container.classList.remove('loading'); loading.classList.remove('show'); }
+    }
+</script>
+
+</body>
+</html>
