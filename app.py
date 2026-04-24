@@ -632,7 +632,7 @@ def admin_informes():
     cursor.execute("SELECT id_club, nombre_club FROM clubes ORDER BY nombre_club")
     clubes = cursor.fetchall()
 
-    return render_template("admin_informes.html", niveles=niveles, especialidades=especialidades, clubes=clubes)
+    return render_template("admin_Informes.html", niveles=niveles, especialidades=especialidades, clubes=clubes)
 
 
 @app.route("/logout")
