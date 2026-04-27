@@ -88,8 +88,8 @@ def init_connection_pool():
             charset='utf8mb4',
             collation='utf8mb4_unicode_ci',
             auth_plugin='mysql_native_password',
-            ssl_verify_cert=True,
-            ssl_verify_identity=True,
+            ssl_verify_cert=False,      # Aiven usa cert autofirmado
+            ssl_verify_identity=False,
         )
         logger.info("✅ Pool de conexiones OK (tamaño 20, SSL Aiven, plan pagado)")
         return True
