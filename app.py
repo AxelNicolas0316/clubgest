@@ -75,7 +75,7 @@ def init_connection_pool():
         # Plan pagado Render + Aiven: optimizado para velocidad
         db_pool = pooling.MySQLConnectionPool(
             pool_name="clubgest_pool",
-            pool_size=3,               # Bajo: 2 workers × 3 = 6 conexiones (Aiven no colapsa)
+            pool_size=15,               # Bajo: 2 workers × 3 = 6 conexiones (Aiven no colapsa)
             pool_reset_session=True,
             host=db_host,
             user=db_user,
@@ -384,8 +384,10 @@ def inscribir_club():
         try:
             cursor = conn.cursor(dictionary=True)
 
-            # SERIALIZABLE evita que dos transacciones lean "hay cupo" al mismo tiempo
-            conn.start_transaction(isolation_level='SERIALIZABLE')
+            # 🔒 Configurar SERIALIZABLE ANTES de empezar transacción (mysql-connector-python bug fix)
+            cursor.execute("SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+            conn.autocommit = False
+            conn.start_transaction()
 
             # 1. Verificar que el estudiante existe
             cursor.execute(
@@ -425,19 +427,19 @@ def inscribir_club():
                 conn.rollback()
                 return render_template("error.html", error="Este club no corresponde a tu nivel académico.")
 
-            # 4. Contar inscritos DENTRO de la transacción bloqueada
+            # 4. Contar inscritos DENTRO de la transacción bloqueada (con FOR UPDATE en inscripciones)
             cursor.execute(
-                "SELECT COUNT(*) AS total FROM inscripciones WHERE id_club = %s",
+                "SELECT COUNT(*) AS total FROM inscripciones WHERE id_club = %s FOR UPDATE",
                 (club_id,)
             )
             total_inscritos = cursor.fetchone()['total']
             cupos_disponibles = club['cupo_maximo'] - total_inscritos
 
-            logger.info(f"📊 Club '{club['nombre_club']}': {total_inscritos}/{club['cupo_maximo']} inscritos")
+            logger.info(f"📊 Club '{club['nombre_club']}': {total_inscritos}/{club['cupo_maximo']} inscritos (SERIALIZABLE en efecto)")
 
             if cupos_disponibles <= 0:
                 conn.rollback()
-                logger.warning(f"⚠️ Club {club_id} lleno al intentar inscribir estudiante {estudiante_id}")
+                logger.critical(f"🚨 CLUB LLENO: intento de inscribir est {estudiante_id} en club {club_id} (0 cupos)")
                 return render_template("error.html",
                     error=f"Lo sentimos, el club «{club['nombre_club']}» ya no tiene cupos disponibles. "
                           f"Por favor elige otro club.",
