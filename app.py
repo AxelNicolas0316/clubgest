@@ -75,7 +75,7 @@ def init_connection_pool():
         # Plan pagado Render + Aiven: optimizado para velocidad
         db_pool = pooling.MySQLConnectionPool(
             pool_name="clubgest_pool",
-            pool_size=25,               # Aumentado para manejar picos
+            pool_size=3,               # Bajo: 2 workers × 3 = 6 conexiones (Aiven no colapsa)
             pool_reset_session=True,
             host=db_host,
             user=db_user,
@@ -1196,8 +1196,8 @@ def error_page():
 # ARRANQUE
 # ════════════════════════════════════════════════════════════════════
 
-# Inicializar pool al cargar el módulo (Gunicorn lo importa antes de fork)
-init_connection_pool()
+# ✅ NO inicializar pool aquí — Gunicorn hace fork y duplicaría conexiones
+# El pool se crea dinámicamente en get_db_connection() cuando se necesita
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
