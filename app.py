@@ -1,19 +1,30 @@
-from flask import Flask, render_template, request, redirect, session, send_from_directory, url_for, flash
+from flask import Flask, render_template, request, redirect, session, send_from_directory, url_for, flash, jsonify
 from werkzeug.utils import secure_filename
 import mysql.connector
-from mysql.connector import Error
+from mysql.connector import Error, pooling
 import os
+import time
+import logging
+from flask_compress import Compress
 
-# NO usar dotenv en producción - Render usa variables de entorno directamente
-# from dotenv import load_dotenv
-# load_dotenv()  # <--- ELIMINAR o usar try/except
+# Configurar logging para monitoreo en Render
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Importamos las funciones que creamos para las recomendaciones
 from recomendaciones import PREGUNTAS_RECOMENDACION, calcular_recomendacion, obtener_clubes_recomendados
 from app_informes import generar_pdf, generar_excel
 
 app = Flask(__name__)
-app.secret_key = "clave_secreta_para_la_sesion"
+
+# Secret key desde variable de entorno (más seguro para producción)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('RENDER') == 'true'  # HTTPS solo en producción
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = 1800  # 30 minutos
+
+# Agregar compresión GZIP para mejor rendimiento
+Compress(app)
 
 # Configuración para subir imágenes
 UPLOAD_FOLDER = 'static/uploads/clubes'
@@ -60,6 +71,56 @@ def get_connection():
         return conn
     except Error as e:
         print(f"❌ Error de conexión a MySQL: {e}")
+        return None
+
+# ════════════════════════════════════════════════════════════════════
+# POOL DE CONEXIONES PARA CONCURRENCIA (NUEVO)
+# ════════════════════════════════════════════════════════════════════
+
+db_pool = None
+
+def init_connection_pool():
+    """Inicializa el pool de conexiones a la base de datos"""
+    global db_pool
+    try:
+        db_host = os.environ.get('DB_HOST', 'mysql-3f49e41c-axelpsoriano03-a945.h.aivencloud.com')
+        db_user = os.environ.get('DB_USER', 'avnadmin')
+        db_password = os.environ.get('DB_PASSWORD', '')
+        db_name = os.environ.get('DB_NAME', 'defaultdb')
+        db_port = int(os.environ.get('DB_PORT', 18162))
+        
+        # OPTIMIZADO PARA 50 USUARIOS
+        db_pool = pooling.MySQLConnectionPool(
+            pool_name="clubgest_pool",
+            pool_size=30,  # Aumentado de 20 a 30 para 50 usuarios
+            max_overflow=5,  # Permite 5 conexiones extra en picos
+            pool_reset_session=True,
+            host=db_host,
+            user=db_user,
+            password=db_password,
+            database=db_name,
+            port=db_port,
+            connection_timeout=30,
+            autocommit=False,
+            auth_plugin='mysql_native_password',
+            ssl_verify_cert=True,
+            ssl_verify_identity=True
+        )
+        logging.info("✅ Pool de conexiones inicializado con tamaño 30")
+        return True
+    except Error as e:
+        logging.error(f"❌ Error al inicializar pool: {e}")
+        return False
+
+def get_db_connection():
+    """Obtiene una conexión del pool"""
+    global db_pool
+    if db_pool is None:
+        init_connection_pool()
+    try:
+        return db_pool.get_connection()
+    except Error as e:
+        logging.error(f"❌ Error al obtener conexión: {e}")
         return None
 
 # IMPORTANTE: NO crear conexión global al inicio
@@ -251,41 +312,216 @@ def clubes():
 
 @app.route("/inscribir_club", methods=["POST"])
 def inscribir_club():
-    """Finaliza la inscripción: guarda la relación estudiante-club"""
+    """
+    Endpoint mejorado para inscribir estudiantes en clubes con manejo de concurrencia.
+    Soporta 50+ usuarios simultáneos sin race conditions.
+    """
+    
+    # Validación inicial
     if "id_estudiante" not in session:
+        logging.warning("❌ Intento de inscripción sin sesión")
         return redirect("/")
 
-    if not ensure_connection():
-        return render_template("error.html", error="No se pudo conectar a la base de datos")
-    
-    estudiante = session["id_estudiante"]
-    club = request.form.get("club")
+    estudiante = session.get("id_estudiante")
+    club = request.form.get("club", "").strip()
 
     if not club:
-        return "Error: No elegiste ningún club."
+        logging.warning(f"❌ Estudiante {estudiante} no seleccionó club")
+        return render_template("error.html", error="Error: No seleccionaste ningún club.")
 
-    # Verificar que no esté ya inscrito
-    cursor.execute("SELECT * FROM inscripciones WHERE id_estudiante=%s", (estudiante,))
-    if cursor.fetchone():
-        return "Ya estás inscrito en un club."
+    # Validar que club sea número
+    try:
+        club_id = int(club)
+    except (ValueError, TypeError):
+        logging.warning(f"❌ Club inválido: {club}")
+        return render_template("error.html", error="Error: Club no válido.")
 
-    # Verificar cupos disponibles
-    cursor.execute("SELECT cupo_maximo, (SELECT COUNT(*) FROM inscripciones WHERE id_club = %s) as usados FROM clubes WHERE id_club = %s", (club, club))
-    datos = cursor.fetchone()
+    logging.info(f"📝 Inscripción iniciada - Estudiante: {estudiante}, Club: {club_id}")
 
-    if datos["usados"] >= datos["cupo_maximo"]:
-        return "¡Lo sentimos! El club se llenó justo ahora."
+    # Obtener conexión del pool
+    conn = get_db_connection()
+    if not conn:
+        logging.error("❌ No hay conexión a BD")
+        return render_template("error.html", error="Error de conexión a BD.")
 
-    # Registrar inscripción
-    cursor.execute("INSERT INTO inscripciones (id_estudiante, id_club) VALUES (%s, %s)", (estudiante, club))
-    conexion.commit()
+    cursor = None
+    max_reintentos = 3
+    reintento = 0
 
-    # Limpiar sesión
-    session.pop("id_estudiante", None)
-    session.pop("nivel", None)
-    session.pop("respuestas_recomendacion", None)
+    while reintento < max_reintentos:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            
+            # TRANSACCIÓN SERIALIZABLE (aísla completamente)
+            conn.start_transaction(isolation_level='SERIALIZABLE', read_only=False)
+            
+            # Verificar que estudiante existe
+            cursor.execute(
+                "SELECT id_estudiante, id_nivel FROM estudiantes WHERE id_estudiante = %s",
+                (estudiante,)
+            )
+            estudiante_data = cursor.fetchone()
+            
+            if not estudiante_data:
+                conn.rollback()
+                logging.warning(f"❌ Estudiante {estudiante} no existe")
+                return render_template("error.html", error="Error: Tu registro no existe.")
 
-    return render_template("exito.html")
+            nivel_estudiante = estudiante_data['id_nivel']
+
+            # Verificar que NO está ya inscrito
+            cursor.execute(
+                "SELECT id_inscripcion FROM inscripciones WHERE id_estudiante = %s",
+                (estudiante,)
+            )
+            if cursor.fetchone():
+                conn.rollback()
+                logging.warning(f"❌ Estudiante {estudiante} ya inscrito")
+                return render_template("error.html", error="Ya estás inscrito en otro club.")
+
+            # ✅ CRÍTICO: SELECT FOR UPDATE bloquea la fila mientras la usamos
+            cursor.execute(
+                "SELECT id_club, id_nivel, cupo_maximo, nombre_club, activo FROM clubes WHERE id_club = %s FOR UPDATE",
+                (club_id,)
+            )
+            club_data = cursor.fetchone()
+            
+            if not club_data:
+                conn.rollback()
+                logging.warning(f"❌ Club {club_id} no existe")
+                return render_template("error.html", error="Error: El club no existe.")
+
+            if not club_data['activo']:
+                conn.rollback()
+                return render_template("error.html", error="Este club está desactivado.")
+
+            if club_data['id_nivel'] != nivel_estudiante:
+                conn.rollback()
+                return render_template("error.html", error="Club no disponible para tu nivel.")
+
+            # Contar inscritos (dentro de la transacción bloqueada)
+            cursor.execute(
+                "SELECT COUNT(*) as total_inscritos FROM inscripciones WHERE id_club = %s",
+                (club_id,)
+            )
+            count_result = cursor.fetchone()
+            total_inscritos = count_result['total_inscritos'] if count_result else 0
+            
+            cupos_disponibles = club_data['cupo_maximo'] - total_inscritos
+            
+            logging.info(f"📊 Club {club_id}: Max={club_data['cupo_maximo']}, Inscritos={total_inscritos}, Disponibles={cupos_disponibles}")
+            
+            # VALIDACIÓN CRÍTICA: Cupos disponibles
+            if cupos_disponibles <= 0:
+                conn.rollback()
+                logging.warning(f"❌ Club {club_id} lleno ({total_inscritos}/{club_data['cupo_maximo']})")
+                return render_template("error.html", 
+                    error=f"😔 {club_data['nombre_club']} está lleno.\n\nSolo se aceptaban {club_data['cupo_maximo']} estudiantes y se alcanzó el límite.")
+            
+            # Validación de valores negativos
+            if club_data['cupo_maximo'] < 0 or total_inscritos < 0:
+                conn.rollback()
+                logging.error(f"❌ Valores de cupo inválidos")
+                return render_template("error.html", error="Error interno en cálculo de cupos.")
+
+            # INSERTAR INSCRIPCIÓN
+            cursor.execute(
+                "INSERT INTO inscripciones (id_estudiante, id_club, fecha_hora) VALUES (%s, %s, NOW())",
+                (estudiante, club_id)
+            )
+            
+            inscripcion_id = cursor.lastrowid
+            logging.info(f"✅ Inscripción creada - ID: {inscripcion_id}, Estudiante: {estudiante}, Club: {club_id}")
+
+            # COMMIT de la transacción
+            conn.commit()
+            logging.info(f"✅ Transacción confirmada")
+
+            # Limpiar sesión
+            session.pop("id_estudiante", None)
+            session.pop("nivel", None)
+            session.pop("respuestas_recomendacion", None)
+
+            return render_template("exito.html")
+
+        except mysql.connector.errors.DatabaseError as e:
+            # Deadlock - reintentar
+            if e.errno == 1213:
+                reintento += 1
+                logging.warning(f"⚠️ Deadlock. Reintentando ({reintento}/{max_reintentos})...")
+                conn.rollback()
+                time.sleep(0.1 * reintento)
+                continue
+            else:
+                conn.rollback()
+                logging.error(f"❌ Error BD: {e}")
+                return render_template("error.html", error="Error en la BD.")
+        
+        except mysql.connector.errors.IntegrityError as e:
+            conn.rollback()
+            logging.error(f"❌ Integrity Error: {e}")
+            if "UNIQUE" in str(e):
+                return render_template("error.html", error="Ya estás inscrito en este club.")
+            else:
+                return render_template("error.html", error="Error al procesar tu inscripción.")
+        
+        except Exception as e:
+            conn.rollback()
+            logging.error(f"❌ Error inesperado: {e}")
+            return render_template("error.html", error=f"Error: {str(e)}")
+        
+        finally:
+            if cursor:
+                cursor.close()
+
+    # Agotados reintentos
+    logging.error(f"❌ Se agotaron reintentos")
+    return render_template("error.html", error="El sistema está muy ocupado. Intenta de nuevo.")
+
+
+@app.route("/api/cupos/<int:club_id>", methods=["GET"])
+def api_cupos(club_id):
+    """API endpoint para obtener cupos disponibles en TIEMPO REAL"""
+    
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "No hay conexión"}), 500
+
+    try:
+        cursor = conn.cursor(dictionary=True)
+        
+        cursor.execute(
+            """SELECT clubes.cupo_maximo, COUNT(inscripciones.id_inscripcion) as inscritos
+               FROM clubes 
+               LEFT JOIN inscripciones ON clubes.id_club = inscripciones.id_club
+               WHERE clubes.id_club = %s
+               GROUP BY clubes.id_club""",
+            (club_id,)
+        )
+        
+        resultado = cursor.fetchone()
+        
+        if not resultado:
+            return jsonify({"error": "Club no encontrado"}), 404
+        
+        cupos_disponibles = max(0, resultado['cupo_maximo'] - resultado['inscritos'])
+        
+        return jsonify({
+            "club_id": club_id,
+            "cupo_maximo": resultado['cupo_maximo'],
+            "inscritos": resultado['inscritos'],
+            "cupos_disponibles": cupos_disponibles,
+            "porcentaje_lleno": round((resultado['inscritos'] / resultado['cupo_maximo'] * 100), 1) if resultado['cupo_maximo'] > 0 else 0,
+            "lleno": cupos_disponibles <= 0
+        })
+    
+    except Exception as e:
+        logging.error(f"Error en API cupos: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+    finally:
+        cursor.close()
+        conn.close()
 
 
 @app.route("/login", methods=["GET", "POST"])

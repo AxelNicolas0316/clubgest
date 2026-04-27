@@ -3,22 +3,33 @@ services:
     name: clubgest
     runtime: python
     repo: https://github.com/AxelNicolas0316/clubgest
-    plan: free
+    plan: standard  # ACTUALIZADO: Cambiar a standard para manejar 50 usuarios sin problemas
     region: oregon
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn --workers 4 --threads 2 --worker-class gthread --bind 0.0.0.0:10000 --timeout 120 --access-logfile - --error-logfile - app:app
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.11.9
       - key: DB_HOST
         value: mysql-3f49e41c-axelpsoriano03-a945.h.aivencloud.com
       - key: DB_USER
         value: avnadmin
       - key: DB_PASSWORD
-        value:  # <--- DÉJALO VACÍO (la contraseña se agrega manualmente en Render)
+        # IMPORTANTE: Debe agregarse manualmente en Render Dashboard
+        # Environment → Add Environment Variable
+        # Copiar contraseña de Aiven
+        value:  
       - key: DB_NAME
         value: defaultdb
       - key: DB_PORT
         value: 18162
       - key: RENDER
         value: true
+      - key: SECRET_KEY
+        # IMPORTANTE: Generar una clave aleatoria en Render Dashboard
+        # Comando para generar: python -c "import secrets; print(secrets.token_urlsafe(32))"
+        value:  # Debe agregarse en Render Dashboard
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: false

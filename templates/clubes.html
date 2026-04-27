@@ -691,16 +691,111 @@
 </div>
 
 <script>
-    // Habilitar botón
+    // ✅ NUEVA: Actualizar cupos en TIEMPO REAL cada 2 segundos
+    const ACTUALIZAR_CADA_MS = 2000;
+    
+    function actualizarCupos() {
+        document.querySelectorAll('.club-card').forEach(card => {
+            const clubId = card.dataset.id;
+            if (!clubId) return;
+            
+            fetch(`/api/cupos/${clubId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) return;
+                    
+                    // Actualizar barra de progreso
+                    const pct = 100 - (data.cupos_disponibles / data.cupo_maximo * 100);
+                    const fill = card.querySelector('.cupo-fill');
+                    if (fill) {
+                        fill.style.width = pct + '%';
+                        fill.classList.toggle('warning', pct >= 60 && pct < 80);
+                        fill.classList.toggle('danger', pct >= 80);
+                    }
+                    
+                    // Actualizar número de cupos
+                    const cupoNumbers = card.querySelector('.cupo-numbers');
+                    if (cupoNumbers) {
+                        cupoNumbers.innerHTML = 
+                            `<span>📊 Cupos disponibles</span>
+                             <span><strong>${data.cupos_disponibles}</strong> de ${data.cupo_maximo}</span>`;
+                    }
+                    
+                    // Si está lleno, desactivar
+                    const radio = card.closest('label')?.querySelector('input[type="radio"]');
+                    if (radio && data.lleno) {
+                        radio.disabled = true;
+                        card.classList.add('disabled');
+                        
+                        let mensaje = card.querySelector('.club-full-msg');
+                        if (!mensaje) {
+                            mensaje = document.createElement('div');
+                            mensaje.className = 'club-full-msg';
+                            mensaje.innerHTML = '🔒 Club lleno, pero puedes escoger otro 😊';
+                            card.querySelector('.card-body')?.appendChild(mensaje);
+                        }
+                    } else if (radio && !data.lleno) {
+                        radio.disabled = false;
+                        card.classList.remove('disabled');
+                        const mensaje = card.querySelector('.club-full-msg');
+                        if (mensaje) mensaje.remove();
+                    }
+                })
+                .catch(err => console.error('Error:', err));
+        });
+    }
+    
+    // Actualizar cada 2 segundos
+    setInterval(actualizarCupos, ACTUALIZAR_CADA_MS);
+    actualizarCupos();  // Primera actualización inmediata
+    
+    // ✅ Habilitar botón cuando hay radio seleccionado
     const radios = document.querySelectorAll('input[name="club"]');
     const confirmBtn = document.getElementById('confirmBtn');
+    
     if (radios.length && confirmBtn) {
         radios.forEach(r => r.addEventListener('change', () => {
             confirmBtn.disabled = false;
         }));
     }
-
-    // Recomendaciones desde URL ?rec=1,2,3
+    
+    // ✅ Validar antes de enviar
+    document.getElementById('clubForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const selectedRadio = document.querySelector('input[name="club"]:checked');
+        if (!selectedRadio) {
+            alert('Por favor selecciona un club');
+            return;
+        }
+        
+        const clubId = selectedRadio.value;
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '⏳ Procesando...';
+        
+        try {
+            // Verificar cupos justo antes de enviar
+            const response = await fetch(`/api/cupos/${clubId}`);
+            const cupos = await response.json();
+            
+            if (cupos.error || cupos.lleno) {
+                alert('❌ Este club ya se llenó. Selecciona otro.');
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = '<span>✦</span> Confirmar Inscripción →';
+                return;
+            }
+            
+            // Enviar si hay cupos
+            e.target.submit();
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error de conexión.');
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<span>✦</span> Confirmar Inscripción →';
+        }
+    });
+    
+    // ✅ RECOMENDACIONES (código original)
     const params = new URLSearchParams(window.location.search);
     const recParam = params.get('rec');
 
