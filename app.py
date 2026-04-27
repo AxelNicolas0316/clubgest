@@ -76,8 +76,7 @@ def init_connection_pool():
             connection_timeout=30,
             autocommit=False,
             auth_plugin='mysql_native_password',
-            ssl_verify_cert=True,
-            ssl_verify_identity=True
+            
         )
         logging.info("✅ Pool de conexiones inicializado (tamaño 15)")
         return True
