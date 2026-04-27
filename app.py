@@ -92,8 +92,7 @@ def init_connection_pool():
         # OPTIMIZADO PARA 50 USUARIOS
         db_pool = pooling.MySQLConnectionPool(
             pool_name="clubgest_pool",
-            pool_size=30,  # Aumentado de 20 a 30 para 50 usuarios
-            max_overflow=5,  # Permite 5 conexiones extra en picos
+            pool_size=35,  # Suficiente para 50 usuarios (mysql-connector-python no soporta max_overflow)
             pool_reset_session=True,
             host=db_host,
             user=db_user,
