@@ -72,18 +72,18 @@ def init_connection_pool():
             logger.critical("❌ DB_HOST no configurada. Abortando pool.")
             return False
 
-        # Plan pagado Render + Aiven: podemos usar más conexiones
+        # Plan pagado Render + Aiven: optimizado para velocidad
         db_pool = pooling.MySQLConnectionPool(
             pool_name="clubgest_pool",
-            pool_size=20,               # Plan $7 Render: 20 conexiones simultáneas
+            pool_size=25,               # Aumentado para manejar picos
             pool_reset_session=True,
             host=db_host,
             user=db_user,
             password=db_password,
             database=db_name,
             port=db_port,
-            connect_timeout=15,
-            connection_timeout=15,
+            connect_timeout=10,         # Reducido: si demora 10s, está roto
+            connection_timeout=10,      # Idem
             autocommit=False,
             charset='utf8mb4',
             collation='utf8mb4_unicode_ci',
@@ -91,7 +91,7 @@ def init_connection_pool():
             ssl_verify_cert=False,      # Aiven usa cert autofirmado
             ssl_verify_identity=False,
         )
-        logger.info("✅ Pool de conexiones OK (tamaño 20, SSL Aiven, plan pagado)")
+        logger.info("✅ Pool optimizado: 25 conexiones, timeouts 10s, charset utf8mb4")
         return True
     except Error as e:
         logger.critical(f"❌ Error inicializando pool: {e}")
@@ -290,16 +290,17 @@ def recomendacion_clubes():
     try:
         with get_db() as (conn, cursor):
             nivel = int(session.get("nivel", 0))
+            
+            # ⚡ OPTIMIZADO: Subconsulta en lugar de GROUP BY
             cursor.execute("""
                 SELECT clubes.*,
                        niveles.nombre_nivel,
-                       COUNT(i.id_inscripcion) AS inscritos,
-                       (clubes.cupo_maximo - COUNT(i.id_inscripcion)) AS cupos_restantes
+                       COALESCE((SELECT COUNT(*) FROM inscripciones WHERE id_club = clubes.id_club), 0) AS inscritos,
+                       GREATEST(0, clubes.cupo_maximo - COALESCE((SELECT COUNT(*) FROM inscripciones WHERE id_club = clubes.id_club), 0)) AS cupos_restantes
                 FROM clubes
                 JOIN niveles ON clubes.id_nivel = niveles.id_nivel
-                LEFT JOIN inscripciones i ON clubes.id_club = i.id_club
                 WHERE clubes.id_nivel = %s AND clubes.activo = 1
-                GROUP BY clubes.id_club
+                ORDER BY clubes.nombre_club
             """, (nivel,))
             clubes_disponibles = cursor.fetchall()
 
@@ -326,14 +327,15 @@ def clubes():
     try:
         with get_db() as (conn, cursor):
             nivel = int(session.get("nivel", 0))
+            
+            # ⚡ OPTIMIZADO: Subconsulta en lugar de GROUP BY (más rápido en MySQL)
             cursor.execute("""
-                SELECT clubes.*,
-                       COUNT(i.id_inscripcion) AS inscritos,
-                       GREATEST(0, clubes.cupo_maximo - COUNT(i.id_inscripcion)) AS cupos_restantes
+                SELECT 
+                    clubes.*,
+                    COALESCE((SELECT COUNT(*) FROM inscripciones WHERE id_club = clubes.id_club), 0) AS inscritos,
+                    GREATEST(0, clubes.cupo_maximo - COALESCE((SELECT COUNT(*) FROM inscripciones WHERE id_club = clubes.id_club), 0)) AS cupos_restantes
                 FROM clubes
-                LEFT JOIN inscripciones i ON clubes.id_club = i.id_club
                 WHERE clubes.id_nivel = %s AND clubes.activo = 1
-                GROUP BY clubes.id_club
                 ORDER BY clubes.nombre_club
             """, (nivel,))
             clubes_lista = cursor.fetchall()
