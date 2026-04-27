@@ -6,6 +6,7 @@ import os
 import time
 import logging
 from flask_compress import Compress
+from contextlib import contextmanager
 
 # Configurar logging para monitoreo en Render
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -39,42 +40,8 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def get_connection():
-    """Obtiene una conexión a la base de datos de Aiven usando variables de entorno"""
-    try:
-        # Obtener variables de entorno (Render las inyecta)
-        db_host = os.environ.get('DB_HOST', 'mysql-3f49e41c-axelpsoriano03-a945.h.aivencloud.com')
-        db_user = os.environ.get('DB_USER', 'avnadmin')
-        db_password = os.environ.get('DB_PASSWORD', '')
-        db_name = os.environ.get('DB_NAME', 'defaultdb')
-        db_port = int(os.environ.get('DB_PORT', 18162))
-        
-        # Debug en logs de Render
-        print(f"Intentando conectar a BD en {db_host}:{db_port}")
-        print(f"Usuario: {db_user}")
-        print(f"Base de datos: {db_name}")
-        print(f"Password presente: {'Sí' if db_password else 'NO'}")  # No mostrar la contraseña
-        
-        if not db_password:
-            print("⚠️ ADVERTENCIA: DB_PASSWORD no está configurada en variables de entorno")
-            return None
-            
-        conn = mysql.connector.connect(
-            host=db_host,
-            user=db_user,
-            password=db_password,
-            database=db_name,
-            port=db_port,
-            connection_timeout=30
-        )
-        print("✅ Conexión exitosa a la base de datos")
-        return conn
-    except Error as e:
-        print(f"❌ Error de conexión a MySQL: {e}")
-        return None
-
 # ════════════════════════════════════════════════════════════════════
-# POOL DE CONEXIONES PARA CONCURRENCIA (NUEVO)
+# POOL DE CONEXIONES - ÚNICA FORMA DE CONECTAR
 # ════════════════════════════════════════════════════════════════════
 
 db_pool = None
@@ -89,10 +56,13 @@ def init_connection_pool():
         db_name = os.environ.get('DB_NAME', 'defaultdb')
         db_port = int(os.environ.get('DB_PORT', 18162))
         
-        # OPTIMIZADO PARA 50 USUARIOS
+        if not db_password:
+            logging.error("⚠️ CRÍTICO: DB_PASSWORD no está configurada en variables de entorno")
+            return False
+        
         db_pool = pooling.MySQLConnectionPool(
             pool_name="clubgest_pool",
-            pool_size=35,  # Suficiente para 50 usuarios (mysql-connector-python no soporta max_overflow)
+            pool_size=35,  # Para manejar 50 usuarios
             pool_reset_session=True,
             host=db_host,
             user=db_user,
@@ -105,7 +75,7 @@ def init_connection_pool():
             ssl_verify_cert=True,
             ssl_verify_identity=True
         )
-        logging.info("✅ Pool de conexiones inicializado con tamaño 30")
+        logging.info("✅ Pool de conexiones inicializado (tamaño 35)")
         return True
     except Error as e:
         logging.error(f"❌ Error al inicializar pool: {e}")
@@ -122,36 +92,23 @@ def get_db_connection():
         logging.error(f"❌ Error al obtener conexión: {e}")
         return None
 
-# IMPORTANTE: NO crear conexión global al inicio
-# En su lugar, crear cursor en cada ruta o usar lazy initialization
-cursor = None
-conexion = None
-
-def ensure_connection():
-    """Asegura que la conexión esté activa antes de cada consulta"""
-    global conexion, cursor
+@contextmanager
+def get_db():
+    """Context manager para usar conexión y cursor automáticamente"""
+    conn = get_db_connection()
+    if conn is None:
+        raise Exception("No hay conexión a la base de datos")
+    
+    cursor = conn.cursor(dictionary=True)
     try:
-        if conexion is None or not conexion.is_connected():
-            conexion = get_connection()
-            if conexion:
-                cursor = conexion.cursor(dictionary=True)
-        return conexion is not None
+        yield conn, cursor
     except Exception as e:
-        print(f"Error en ensure_connection: {e}")
-        return False
-
-# Inicializar conexión (con manejo de error)
-try:
-    conexion = get_connection()
-    if conexion:
-        cursor = conexion.cursor(dictionary=True)
-        print("✅ Conexión inicial establecida")
-    else:
-        print("⚠️ No se pudo establecer conexión inicial - se reintentará en cada ruta")
-except Exception as e:
-    print(f"Error inicial: {e}")
-    conexion = None
-    cursor = None
+        logging.error(f"❌ Error en transacción: {e}")
+        conn.rollback()
+        raise
+    finally:
+        cursor.close()
+        conn.close()
 
 
 @app.route('/imagenes/<path:filename>')
@@ -168,22 +125,21 @@ def inicio():
 @app.route("/formulario")
 def formulario():
     """Muestra el formulario de registro con niveles y especialidades"""
-    if not ensure_connection():
-        return render_template("error.html", error="No se pudo conectar a la base de datos")
-    
-    cursor.execute("SELECT * FROM niveles")
-    niveles = cursor.fetchall()
-    cursor.execute("SELECT * FROM especialidades")
-    especialidades = cursor.fetchall()
-    return render_template("formulario.html", niveles=niveles, especialidades=especialidades)
+    try:
+        with get_db() as (conn, cursor):
+            cursor.execute("SELECT * FROM niveles")
+            niveles = cursor.fetchall()
+            cursor.execute("SELECT * FROM especialidades")
+            especialidades = cursor.fetchall()
+        return render_template("formulario.html", niveles=niveles, especialidades=especialidades)
+    except Exception as e:
+        logging.error(f"❌ Error en /formulario: {e}")
+        return render_template("error.html", error="Error al cargar el formulario")
 
 
 @app.route("/inscribirse", methods=["POST"])
 def inscribirse():
     """Guarda al estudiante en la base de datos después de validar su correo"""
-    if not ensure_connection():
-        return render_template("error.html", error="No se pudo conectar a la base de datos")
-    
     nombre = request.form["nombre"]
     apellido = request.form["apellido"]
     correo = request.form["correo"].lower()
@@ -191,39 +147,44 @@ def inscribirse():
     nivel = request.form["nivel"]
     especialidad = request.form["especialidad"]
 
-    # Validación estricta de correo institucional
-    if not correo.endswith("@donboscolatola.edu.ec"):
-        cursor.execute("SELECT * FROM niveles")
-        niveles = cursor.fetchall()
-        cursor.execute("SELECT * FROM especialidades")
-        especialidades = cursor.fetchall()
-        return render_template("formulario.html", 
-                             error="Solo se permiten correos institucionales @donboscolatola.edu.ec",
-                             niveles=niveles,
-                             especialidades=especialidades)
+    try:
+        with get_db() as (conn, cursor):
+            # Validación estricta de correo institucional
+            if not correo.endswith("@donboscolatola.edu.ec"):
+                cursor.execute("SELECT * FROM niveles")
+                niveles = cursor.fetchall()
+                cursor.execute("SELECT * FROM especialidades")
+                especialidades = cursor.fetchall()
+                return render_template("formulario.html", 
+                                     error="Solo se permiten correos institucionales @donboscolatola.edu.ec",
+                                     niveles=niveles,
+                                     especialidades=especialidades)
 
-    # Verificar si el correo ya existe
-    cursor.execute("SELECT * FROM estudiantes WHERE correo_institucional=%s", (correo,))
-    if cursor.fetchone():
-        cursor.execute("SELECT * FROM niveles")
-        niveles = cursor.fetchall()
-        cursor.execute("SELECT * FROM especialidades")
-        especialidades = cursor.fetchall()
-        return render_template("formulario.html", 
-                             error="Este correo ya está registrado. Si no has elegido club, contacta al administrador.",
-                             niveles=niveles,
-                             especialidades=especialidades)
+            # Verificar si el correo ya existe
+            cursor.execute("SELECT * FROM estudiantes WHERE correo_institucional=%s", (correo,))
+            if cursor.fetchone():
+                cursor.execute("SELECT * FROM niveles")
+                niveles = cursor.fetchall()
+                cursor.execute("SELECT * FROM especialidades")
+                especialidades = cursor.fetchall()
+                return render_template("formulario.html", 
+                                     error="Este correo ya está registrado. Si no has elegido club, contacta al administrador.",
+                                     niveles=niveles,
+                                     especialidades=especialidades)
 
-    # Insertar estudiante
-    sql = "INSERT INTO estudiantes (nombres, apellidos, correo_institucional, genero, id_nivel, id_especialidad) VALUES (%s,%s,%s,%s,%s,%s)"
-    cursor.execute(sql, (nombre, apellido, correo, genero, nivel, especialidad))
-    conexion.commit()
+            # Insertar estudiante
+            sql = "INSERT INTO estudiantes (nombres, apellidos, correo_institucional, genero, id_nivel, id_especialidad) VALUES (%s,%s,%s,%s,%s,%s)"
+            cursor.execute(sql, (nombre, apellido, correo, genero, nivel, especialidad))
+            conn.commit()
+            
+            # Guardar datos en sesión para el proceso de inscripción
+            session["id_estudiante"] = cursor.lastrowid
+            session["nivel"] = nivel
 
-    # Guardar datos en sesión para el proceso de inscripción
-    session["id_estudiante"] = cursor.lastrowid
-    session["nivel"] = nivel
-
-    return redirect("/clubes")
+        return redirect("/clubes")
+    except Exception as e:
+        logging.error(f"❌ Error en /inscribirse: {e}")
+        return render_template("error.html", error="Error al registrar estudiante")
 
 
 @app.route("/cuestionario")
@@ -261,29 +222,31 @@ def recomendacion_clubes():
     if "respuestas_recomendacion" not in session:
         return redirect("/cuestionario")
     
-    if not ensure_connection():
-        return render_template("error.html", error="No se pudo conectar a la base de datos")
-    
-    nivel = int(session.get("nivel"))
-    
-    # Obtener clubes disponibles con sus cupos
-    cursor.execute("""
-        SELECT clubes.*, niveles.nombre_nivel,
-        (SELECT COUNT(*) FROM inscripciones WHERE inscripciones.id_club = clubes.id_club) as inscritos,
-        (clubes.cupo_maximo - (SELECT COUNT(*) FROM inscripciones WHERE inscripciones.id_club = clubes.id_club)) AS cupos_restantes
-        FROM clubes JOIN niveles ON clubes.id_nivel = niveles.id_nivel
-        WHERE clubes.id_nivel = %s AND clubes.activo = 1
-    """, (nivel,))
-    clubes_disponibles = cursor.fetchall()
-    
-    # Analizar respuestas y recomendar
-    respuestas = session["respuestas_recomendacion"]
-    recomendacion = calcular_recomendacion(respuestas)
-    clubes_recomendados, otros_clubes = obtener_clubes_recomendados(clubes_disponibles, recomendacion["categoria"])
-    
-    return render_template("recomendacion.html", recomendacion=recomendacion, 
-                           clubes_recomendados=clubes_recomendados, otros_clubes=otros_clubes, 
-                           clubes_disponibles=clubes_disponibles)
+    try:
+        with get_db() as (conn, cursor):
+            nivel = int(session.get("nivel"))
+            
+            # Obtener clubes disponibles con sus cupos
+            cursor.execute("""
+                SELECT clubes.*, niveles.nombre_nivel,
+                (SELECT COUNT(*) FROM inscripciones WHERE inscripciones.id_club = clubes.id_club) as inscritos,
+                (clubes.cupo_maximo - (SELECT COUNT(*) FROM inscripciones WHERE inscripciones.id_club = clubes.id_club)) AS cupos_restantes
+                FROM clubes JOIN niveles ON clubes.id_nivel = niveles.id_nivel
+                WHERE clubes.id_nivel = %s AND clubes.activo = 1
+            """, (nivel,))
+            clubes_disponibles = cursor.fetchall()
+            
+            # Analizar respuestas y recomendar
+            respuestas = session["respuestas_recomendacion"]
+            recomendacion = calcular_recomendacion(respuestas)
+            clubes_recomendados, otros_clubes = obtener_clubes_recomendados(clubes_disponibles, recomendacion["categoria"])
+            
+            return render_template("recomendacion.html", recomendacion=recomendacion, 
+                                   clubes_recomendados=clubes_recomendados, otros_clubes=otros_clubes, 
+                                   clubes_disponibles=clubes_disponibles)
+    except Exception as e:
+        logging.error(f"❌ Error en /recomendacion_clubes: {e}")
+        return render_template("error.html", error="Error al cargar recomendaciones")
 
 
 @app.route("/clubes")
@@ -292,21 +255,23 @@ def clubes():
     if "id_estudiante" not in session:
         return redirect("/formulario")
 
-    if not ensure_connection():
-        return render_template("error.html", error="No se pudo conectar a la base de datos")
-    
-    nivel = int(session.get("nivel"))
-    
-    cursor.execute("""
-    SELECT clubes.*, (SELECT COUNT(*) FROM inscripciones WHERE inscripciones.id_club = clubes.id_club) as inscritos,
-    (clubes.cupo_maximo - (SELECT COUNT(*) FROM inscripciones WHERE inscripciones.id_club = clubes.id_club)) AS cupos_restantes
-    FROM clubes WHERE clubes.id_nivel = %s AND clubes.activo = 1
-    """, (nivel,))
+    try:
+        with get_db() as (conn, cursor):
+            nivel = int(session.get("nivel"))
+            
+            cursor.execute("""
+            SELECT clubes.*, (SELECT COUNT(*) FROM inscripciones WHERE inscripciones.id_club = clubes.id_club) as inscritos,
+            (clubes.cupo_maximo - (SELECT COUNT(*) FROM inscripciones WHERE inscripciones.id_club = clubes.id_club)) AS cupos_restantes
+            FROM clubes WHERE clubes.id_nivel = %s AND clubes.activo = 1
+            """, (nivel,))
 
-    clubes_lista = cursor.fetchall()
-    disponible = len(clubes_lista) > 0
+            clubes_lista = cursor.fetchall()
+            disponible = len(clubes_lista) > 0
 
-    return render_template("clubes.html", clubes=clubes_lista, disponible=disponible)
+        return render_template("clubes.html", clubes=clubes_lista, disponible=disponible)
+    except Exception as e:
+        logging.error(f"❌ Error en /clubes: {e}")
+        return render_template("error.html", error="Error al cargar clubes")
 
 
 @app.route("/inscribir_club", methods=["POST"])
@@ -472,6 +437,8 @@ def inscribir_club():
         finally:
             if cursor:
                 cursor.close()
+            if conn:
+                conn.close()
 
     # Agotados reintentos
     logging.error(f"❌ Se agotaron reintentos")
@@ -482,45 +449,35 @@ def inscribir_club():
 def api_cupos(club_id):
     """API endpoint para obtener cupos disponibles en TIEMPO REAL"""
     
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "No hay conexión"}), 500
-
     try:
-        cursor = conn.cursor(dictionary=True)
-        
-        cursor.execute(
-            """SELECT clubes.cupo_maximo, COUNT(inscripciones.id_inscripcion) as inscritos
-               FROM clubes 
-               LEFT JOIN inscripciones ON clubes.id_club = inscripciones.id_club
-               WHERE clubes.id_club = %s
-               GROUP BY clubes.id_club""",
-            (club_id,)
-        )
-        
-        resultado = cursor.fetchone()
-        
-        if not resultado:
-            return jsonify({"error": "Club no encontrado"}), 404
-        
-        cupos_disponibles = max(0, resultado['cupo_maximo'] - resultado['inscritos'])
-        
-        return jsonify({
-            "club_id": club_id,
-            "cupo_maximo": resultado['cupo_maximo'],
-            "inscritos": resultado['inscritos'],
-            "cupos_disponibles": cupos_disponibles,
-            "porcentaje_lleno": round((resultado['inscritos'] / resultado['cupo_maximo'] * 100), 1) if resultado['cupo_maximo'] > 0 else 0,
-            "lleno": cupos_disponibles <= 0
-        })
-    
+        with get_db() as (conn, cursor):
+            cursor.execute(
+                """SELECT clubes.cupo_maximo, COUNT(inscripciones.id_inscripcion) as inscritos
+                   FROM clubes 
+                   LEFT JOIN inscripciones ON clubes.id_club = inscripciones.id_club
+                   WHERE clubes.id_club = %s
+                   GROUP BY clubes.id_club""",
+                (club_id,)
+            )
+            
+            resultado = cursor.fetchone()
+            
+            if not resultado:
+                return jsonify({"error": "Club no encontrado"}), 404
+            
+            cupos_disponibles = max(0, resultado['cupo_maximo'] - resultado['inscritos'])
+            
+            return jsonify({
+                "club_id": club_id,
+                "cupo_maximo": resultado['cupo_maximo'],
+                "inscritos": resultado['inscritos'],
+                "cupos_disponibles": cupos_disponibles,
+                "porcentaje_lleno": round((resultado['inscritos'] / resultado['cupo_maximo'] * 100), 1) if resultado['cupo_maximo'] > 0 else 0,
+                "lleno": cupos_disponibles <= 0
+            })
     except Exception as e:
-        logging.error(f"Error en API cupos: {e}")
+        logging.error(f"❌ Error en API cupos: {e}")
         return jsonify({"error": str(e)}), 500
-    
-    finally:
-        cursor.close()
-        conn.close()
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -540,34 +497,36 @@ def admin():
     if "admin" not in session:
         return redirect("/login")
 
-    if not ensure_connection():
-        return render_template("error.html", error="No se pudo conectar a la base de datos")
+    try:
+        with get_db() as (conn, cursor):
+            # Datos de clubes con cupos usados
+            cursor.execute("""
+            SELECT clubes.*, niveles.nombre_nivel, COUNT(inscripciones.id_inscripcion) AS cupos_usados
+            FROM clubes LEFT JOIN inscripciones ON clubes.id_club = inscripciones.id_club
+            JOIN niveles ON clubes.id_nivel = niveles.id_nivel GROUP BY clubes.id_club
+            """)
+            clubes = cursor.fetchall()
 
-    # Datos de clubes con cupos usados
-    cursor.execute("""
-    SELECT clubes.*, niveles.nombre_nivel, COUNT(inscripciones.id_inscripcion) AS cupos_usados
-    FROM clubes LEFT JOIN inscripciones ON clubes.id_club = inscripciones.id_club
-    JOIN niveles ON clubes.id_nivel = niveles.id_nivel GROUP BY clubes.id_club
-    """)
-    clubes = cursor.fetchall()
+            cursor.execute("SELECT * FROM niveles")
+            niveles = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM niveles")
-    niveles = cursor.fetchall()
+            cursor.execute("SELECT * FROM especialidades")
+            especialidades = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM especialidades")
-    especialidades = cursor.fetchall()
+            # Últimas inscripciones para el panel
+            cursor.execute("""
+                SELECT e.nombres, e.apellidos, n.nombre_nivel, c.nombre_club,
+                DATE(i.fecha_hora) as fecha, TIME(i.fecha_hora) as hora
+                FROM inscripciones i JOIN estudiantes e ON i.id_estudiante = e.id_estudiante
+                JOIN clubes c ON i.id_club = c.id_club JOIN niveles n ON e.id_nivel = n.id_nivel
+                ORDER BY i.fecha_hora DESC LIMIT 15
+            """)
+            historial = cursor.fetchall()
 
-    # Últimas inscripciones para el panel
-    cursor.execute("""
-        SELECT e.nombres, e.apellidos, n.nombre_nivel, c.nombre_club,
-        DATE(i.fecha_hora) as fecha, TIME(i.fecha_hora) as hora
-        FROM inscripciones i JOIN estudiantes e ON i.id_estudiante = e.id_estudiante
-        JOIN clubes c ON i.id_club = c.id_club JOIN niveles n ON e.id_nivel = n.id_nivel
-        ORDER BY i.fecha_hora DESC LIMIT 15
-    """)
-    historial = cursor.fetchall()
-
-    return render_template("admin.html", clubes=clubes, niveles=niveles, especialidades=especialidades, historial=historial)
+        return render_template("admin.html", clubes=clubes, niveles=niveles, especialidades=especialidades, historial=historial)
+    except Exception as e:
+        logging.error(f"❌ Error en /admin: {e}")
+        return render_template("error.html", error="Error al cargar panel administrativo")
 
 
 @app.route("/crear_club", methods=["POST"])
@@ -576,42 +535,43 @@ def crear_club():
     if "admin" not in session:
         return redirect("/login")
     
-    if not ensure_connection():
-        return render_template("error.html", error="No se pudo conectar a la base de datos")
-    
     nombre = request.form["nombre"]
     tutor = request.form.get("tutor", "Por asignar")
     descripcion = request.form.get("descripcion", "")
     cupo = int(request.form["cupo"])
     nivel = request.form["nivel"]
 
-    # Verificar si el tutor ya existe
-    if tutor != "Por asignar":
-        cursor.execute("SELECT id_club FROM clubes WHERE tutor = %s", (tutor,))
-        if cursor.fetchone():
-            flash(f"El tutor '{tutor}' ya ha sido asignado a otro club.", "error")
-            return redirect("/admin")
-    
-    # Manejo de la imagen
-    filename = None
-    if 'imagen' in request.files:
-        file = request.files['imagen']
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            import time
-            filename = f"{int(time.time())}_{filename}"
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-
     try:
-        cursor.execute("INSERT INTO clubes (nombre_club, tutor, descripcion, imagen, cupo_maximo, id_nivel, activo) VALUES (%s, %s, %s, %s, %s, %s, 1)", 
-                       (nombre, tutor, descripcion, filename, cupo, nivel))
-        conexion.commit()
-        flash("Club creado exitosamente.", "success")
+        with get_db() as (conn, cursor):
+            # Verificar si el tutor ya existe
+            if tutor != "Por asignar":
+                cursor.execute("SELECT id_club FROM clubes WHERE tutor = %s", (tutor,))
+                if cursor.fetchone():
+                    flash(f"El tutor '{tutor}' ya ha sido asignado a otro club.", "error")
+                    return redirect("/admin")
+            
+            # Manejo de la imagen
+            filename = None
+            if 'imagen' in request.files:
+                file = request.files['imagen']
+                if file and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    import time
+                    filename = f"{int(time.time())}_{filename}"
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+            cursor.execute("INSERT INTO clubes (nombre_club, tutor, descripcion, imagen, cupo_maximo, id_nivel, activo) VALUES (%s, %s, %s, %s, %s, %s, 1)", 
+                           (nombre, tutor, descripcion, filename, cupo, nivel))
+            conn.commit()
+            flash("Club creado exitosamente.", "success")
     except mysql.connector.Error as err:
         if err.errno == 1062:
             flash("Error: El tutor ya está asignado.", "error")
         else:
             flash(f"Error en la base de datos: {err}", "error")
+    except Exception as e:
+        logging.error(f"❌ Error en /crear_club: {e}")
+        flash("Error al crear el club.", "error")
             
     return redirect("/admin")
 
