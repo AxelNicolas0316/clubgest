@@ -82,8 +82,8 @@ def init_connection_pool():
             password=db_password,
             database=db_name,
             port=db_port,
-            connect_timeout=10,         # Reducido: si demora 10s, está roto
-            connection_timeout=10,      # Idem
+            connect_timeout=30,         # SSL handshake en Aiven puede tardar 20-30s
+            connection_timeout=30,      # Tolerancia para latencia inicial
             autocommit=False,
             charset='utf8mb4',
             collation='utf8mb4_unicode_ci',
