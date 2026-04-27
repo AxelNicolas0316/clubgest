@@ -81,7 +81,7 @@ def init_connection_pool():
         # Plan pagado Render + Aiven: optimizado para velocidad
         db_pool = pooling.MySQLConnectionPool(
             pool_name="clubgest_pool",
-            pool_size=5,                # Pequeño para evitar "Too many connections" y mantener rapidez
+            pool_size=10,               # Balance entre rapidez y no saturar Aiven
             pool_reset_session=True,
             host=db_host,
             user=db_user,
@@ -97,7 +97,7 @@ def init_connection_pool():
             ssl_verify_cert=False,      # Aiven usa cert autofirmado
             ssl_verify_identity=False,
         )
-        logger.info("✅ Pool optimizado: 5 conexiones por worker, timeouts 30s, charset utf8mb4")
+        logger.info("✅ Pool optimizado: 10 conexiones por worker, timeouts 30s, charset utf8mb4")
         return True
     except Error as e:
         logger.critical(f"❌ Error inicializando pool: {e}")
@@ -115,6 +115,7 @@ def get_db_connection():
     for intento in range(1, max_intentos + 1):
         try:
             conn = db_pool.get_connection()
+            conn.ping(reconnect=True, attempts=1, delay=0)
             return conn
         except Error as e:
             logger.warning(f"⚠️ Intento {intento}/{max_intentos} de obtener conexión: {e}")
@@ -316,7 +317,7 @@ def recomendacion_clubes():
         with get_db() as (conn, cursor):
             nivel = int(session.get("nivel", 0))
             
-            # ⚡ OPTIMIZADO: Subconsulta en lugar de GROUP BY
+            # ⚡ OPTIMIZADO: Una sola query con JOIN + GROUP BY
             cursor.execute("""
                 SELECT
                     c.*,
@@ -357,7 +358,7 @@ def clubes():
         with get_db() as (conn, cursor):
             nivel = int(session.get("nivel", 0))
             
-            # ⚡ OPTIMIZADO: Subconsulta en lugar de GROUP BY (más rápido en MySQL)
+            # ⚡ OPTIMIZADO: Una sola query con JOIN + GROUP BY (más rápido en MySQL)
             cursor.execute("""
                 SELECT
                     c.*,
