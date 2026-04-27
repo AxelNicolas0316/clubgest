@@ -544,6 +544,36 @@ def api_cupos(club_id):
         logger.error(f"❌ /api/cupos/{club_id}: {e}")
         return jsonify({"error": "Error interno"}), 500
 
+
+@app.route("/api/cupos_todos")
+def api_cupos_todos():
+    """Una sola query para todos los clubes — reemplaza el polling individual."""
+    try:
+        with get_db() as (conn, cursor):
+            cursor.execute("""
+                SELECT c.id_club, c.cupo_maximo, COUNT(i.id_inscripcion) AS inscritos
+                FROM clubes c
+                LEFT JOIN inscripciones i ON c.id_club = i.id_club
+                WHERE c.activo = 1
+                GROUP BY c.id_club
+            """)
+            rows = cursor.fetchall()
+
+        result = {}
+        for r in rows:
+            disponibles = max(0, r['cupo_maximo'] - r['inscritos'])
+            result[str(r['id_club'])] = {
+                "cupo_maximo":       r['cupo_maximo'],
+                "inscritos":         r['inscritos'],
+                "cupos_disponibles": disponibles,
+                "porcentaje_lleno":  round(r['inscritos'] / r['cupo_maximo'] * 100, 1) if r['cupo_maximo'] > 0 else 0,
+                "lleno":             disponibles <= 0
+            }
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"❌ /api/cupos_todos: {e}")
+        return jsonify({}), 500
+
 # ════════════════════════════════════════════════════════════════════
 # ADMINISTRACIÓN
 # ════════════════════════════════════════════════════════════════════

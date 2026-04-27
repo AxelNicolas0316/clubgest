@@ -37,7 +37,6 @@
         }
         @keyframes glow-line { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
 
-        /* Fondo y estilos generales de la página */
         .bg-grid {
             position: fixed; inset: 0; z-index: 0; pointer-events: none;
             background-image:
@@ -55,14 +54,12 @@
         .orb3 { width: 350px; height: 350px; top: 50%; left: 50%; transform: translate(-50%,-50%);
                 background: radial-gradient(circle, rgba(13,42,94,0.3) 0%, transparent 70%); }
 
-        /* Área principal de contenido */
         .page {
             position: relative; z-index: 1;
             max-width: 1280px; margin: 0 auto;
             padding: 44px 32px 100px;
         }
 
-        /* Encabezado con título e información principal de la página */
         .page-header {
             text-align: center; margin-bottom: 44px;
             animation: fadein 0.5s ease both;
@@ -76,7 +73,6 @@
         }
         .page-header p { font-size: 14.5px; color: var(--muted); }
 
-        /* Banner que destaca los clubes recomendados para el estudiante */
         .rec-banner {
             display: none;
             background: linear-gradient(135deg, rgba(212,160,23,0.08), rgba(13,42,94,0.3));
@@ -104,7 +100,6 @@
             font-size: 13px; font-weight: 700; color: var(--gold2);
         }
 
-        /* Mascota animada de la página */
         .mascot-section {
             display: flex; justify-content: center; margin-bottom: 48px;
             animation: fadein 0.6s 0.15s ease both;
@@ -151,7 +146,6 @@
             50%      { transform: translateY(-12px); }
         }
 
-        /* Línea divisoria entre secciónes */
         .divider {
             display: flex; align-items: center; gap: 16px; margin-bottom: 32px;
             animation: fadein 0.5s 0.2s ease both;
@@ -166,7 +160,6 @@
             white-space: nowrap;
         }
 
-        /* Estilos para la grilla de tarjetas de clubes disponibles */
         .club-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -176,7 +169,6 @@
         .club-option { cursor: pointer; height: 100%; }
         .club-option input[type="radio"] { display: none; }
 
-        /* The card */
         .club-card {
             background: var(--card);
             border-radius: 22px;
@@ -190,7 +182,6 @@
                         box-shadow 0.28s;
         }
 
-        /* Animated border glow on hover */
         .club-card::before {
             content: '';
             position: absolute; inset: -1px;
@@ -212,40 +203,24 @@
 
         .club-card:hover:not(.disabled) {
             transform: translateY(-7px);
-            box-shadow: 
-                0 20px 50px rgba(0,0,0,0.45),
-                0 0 30px rgba(212, 160, 23, 0.4); /* Brillo dorado al rededor */
+            box-shadow: 0 20px 50px rgba(0,0,0,0.45), 0 0 30px rgba(212,160,23,0.4);
             border-color: var(--gold);
         }
-        .club-card:hover:not(.disabled) .club-name {
-            text-shadow: 0 0 10px rgba(212, 160, 23, 0.8); /* Brillo en el nombre */
-            color: var(--gold2);
-        }
+        .club-card:hover:not(.disabled) .club-name { color: var(--gold2); }
         .club-card:hover:not(.disabled)::before { opacity: 1; }
 
-        /* Selected state */
         .club-option input:checked + .club-card {
             border-color: var(--gold2);
-            box-shadow: 
-                0 0 0 3px rgba(212, 160, 23, 0.2),
-                0 20px 50px rgba(0,0,0,0.5),
-                0 0 40px rgba(212, 160, 23, 0.6); /* Brillo más intenso al seleccionar */
-        }
-        .club-option input:checked + .club-card .club-name {
-            text-shadow: 0 0 15px rgba(212, 160, 23, 1); /* Brillo máximo en el nombre */
-            color: var(--gold2);
+            box-shadow: 0 0 0 3px rgba(212,160,23,0.2), 0 20px 50px rgba(0,0,0,0.5), 0 0 40px rgba(212,160,23,0.6);
         }
         .club-option input:checked + .club-card::before { opacity: 1; }
 
-        /* Disabled */
         .club-card.disabled { opacity: 0.5; cursor: not-allowed; }
         .club-card.disabled:hover { transform: none; box-shadow: none; }
         .club-card.disabled::before { display: none; }
 
-        /* All inner content needs z-index > ::after */
         .card-inner { position: relative; z-index: 2; display: flex; flex-direction: column; height: 100%; }
 
-        /* Área de la imagen del club en la tarjeta */
         .card-img {
             width: 100%; height: 175px;
             overflow: hidden; position: relative; flex-shrink: 0;
@@ -255,15 +230,12 @@
             transition: transform 0.5s ease;
         }
         .club-card:hover:not(.disabled) .card-img img { transform: scale(1.06); }
-
-        /* Image overlay gradient */
         .card-img::after {
             content: '';
             position: absolute; bottom: 0; left: 0; right: 0; height: 70%;
             background: linear-gradient(to top, var(--card) 0%, transparent 100%);
         }
 
-        /* No image — show icon placeholder */
         .card-img-placeholder {
             width: 100%; height: 140px;
             display: flex; align-items: center; justify-content: center;
@@ -272,7 +244,6 @@
             border-bottom: 1px solid rgba(255,255,255,0.05);
         }
 
-        /* Marca de selección en el club elegido por el estudiante */
         .check-mark {
             display: none;
             position: absolute; top: 14px; right: 14px; z-index: 10;
@@ -282,10 +253,8 @@
             align-items: center; justify-content: center;
             box-shadow: 0 4px 12px rgba(212,160,23,0.5);
         }
-        .club-option input:checked ~ .card-inner .check-mark,
         .club-option input:checked + .club-card .check-mark { display: flex; }
 
-        /* Distintivo que muestra que el club fue recomendado */
         .rec-badge {
             display: none;
             position: absolute; top: 14px; left: 14px; z-index: 10;
@@ -297,7 +266,6 @@
         }
         .club-card.recommended .rec-badge { display: block; }
 
-        /* Contenido principal de la tarjeta del club */
         .card-body {
             padding: 18px 20px 20px;
             display: flex; flex-direction: column; flex: 1;
@@ -306,9 +274,7 @@
         .card-title {
             font-family: 'Sora', sans-serif;
             font-size: 20px; font-weight: 800; color: var(--white);
-            margin-bottom: 8px; line-height: 1.2;
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.4), 0 0 30px rgba(212, 160, 23, 0.2);
-            letter-spacing: -0.5px;
+            margin-bottom: 8px; line-height: 1.2; letter-spacing: -0.5px;
         }
 
         .card-desc {
@@ -321,7 +287,6 @@
             flex-grow: 1;
         }
 
-        /* Estadísticas del club (integrantes, actividades, etc.) */
         .card-stats {
             background: rgba(0,0,0,0.25);
             border: 1px solid rgba(255,255,255,0.055);
@@ -351,7 +316,6 @@
         }
         .stat-value.white { color: var(--white); }
 
-        /* Cupo progress */
         .cupo-wrap { margin-top: 10px; }
         .cupo-numbers {
             display: flex; justify-content: space-between;
@@ -371,7 +335,6 @@
         .cupo-fill.warning { background: linear-gradient(90deg, #f59e0b, #fbbf24); box-shadow: 0 0 8px rgba(245,158,11,0.4); }
         .cupo-fill.danger  { background: linear-gradient(90deg, #c0272d, #ef4444); box-shadow: 0 0 8px rgba(192,39,45,0.5); }
 
-        /* Full club message */
         .club-full-msg {
             margin-top: 12px;
             background: rgba(192,39,45,0.1);
@@ -381,7 +344,22 @@
             font-size: 12px; font-weight: 700; color: #ff8888;
         }
 
-        /* Botón para confirmar la elección del club */
+        /* Indicador de actualización en vivo */
+        .live-indicator {
+            display: flex; align-items: center; gap: 6px;
+            justify-content: center; margin-bottom: 16px;
+            font-size: 11px; color: rgba(122,156,196,0.5);
+        }
+        .live-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #22c55e;
+            animation: live-pulse 2s ease-in-out infinite;
+        }
+        @keyframes live-pulse {
+            0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+            50%      { opacity: 0.7; box-shadow: 0 0 0 4px rgba(34,197,94,0); }
+        }
+
         .confirm-wrap {
             position: sticky; bottom: 30px; left: 0; right: 0;
             display: flex; justify-content: center; z-index: 100;
@@ -401,27 +379,15 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             text-transform: uppercase; letter-spacing: 1px;
         }
-
-        .btn-confirm::after {
-            content: ''; position: absolute; top: -50%; left: -100%; width: 100%; height: 200%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transform: rotate(25deg); transition: none;
-        }
-
         .btn-confirm:hover:not(:disabled) {
             transform: translateY(-5px) scale(1.02);
             box-shadow: 0 20px 55px rgba(0,0,0,0.6), 0 0 35px rgba(212,160,23,0.5);
         }
-        .btn-confirm:hover:not(:disabled)::after { animation: shimmer 1.5s infinite; }
-
         .btn-confirm:disabled {
             background: #2a2a3a; color: rgba(255,255,255,0.15);
             cursor: not-allowed; box-shadow: none;
         }
 
-        @keyframes shimmer { 0% { left: -100%; } 100% { left: 100%; } }
-
-        /* Mensaje cuando no hay clubes disponibles */
         .empty-state {
             text-align: center; padding: 70px 20px;
             background: var(--card); border: 1px solid var(--border);
@@ -431,7 +397,6 @@
         .empty-state h3 { font-family: 'Sora', sans-serif; font-size: 20px; margin-bottom: 10px; }
         .empty-state p { color: var(--muted); font-size: 14px; }
 
-        /* Animaciones de transición y efectos visuales */
         @keyframes fadein {
             from { opacity: 0; transform: translateY(14px); }
             to   { opacity: 1; transform: translateY(0); }
@@ -444,59 +409,27 @@
         .club-grid .club-option:nth-child(5) { animation-delay: 0.25s; }
         .club-grid .club-option:nth-child(6) { animation-delay: 0.30s; }
 
-        /* Estilos adaptables para pantallas más pequeñas */
         @media (max-width: 700px) {
             .page { padding: 28px 16px 96px; }
             .page-header { margin-bottom: 30px; }
             .page-header h1 { font-size: 28px; }
-            .page-header p { font-size: 13px; }
-
             .club-grid { grid-template-columns: 1fr; gap: 18px; }
             .mascot-section { margin-bottom: 34px; }
-            .mascot-wrap {
-                flex-direction: column;
-                align-items: center;
-                gap: 12px;
-            }
-            .bubble {
-                border-radius: 16px;
-                margin-bottom: 0;
-                max-width: 100%;
-                width: 100%;
-            }
+            .mascot-wrap { flex-direction: column; align-items: center; gap: 12px; }
+            .bubble { border-radius: 16px; margin-bottom: 0; max-width: 100%; width: 100%; }
             .bubble::after { display: none; }
-            .db-char {
-                display: block;
-                width: 86px;
-                margin-top: -2px;
-            }
-
-            .confirm-wrap {
-                position: static;
-                padding: 14px 0 0;
-            }
-
-            .btn-confirm {
-                width: 100%;
-                justify-content: center;
-                padding: 16px 18px;
-                font-size: 14px;
-            }
+            .db-char { display: block; width: 86px; margin-top: -2px; }
+            .confirm-wrap { position: static; padding: 14px 0 0; }
+            .btn-confirm { width: 100%; justify-content: center; padding: 16px 18px; font-size: 14px; }
         }
-
         @media (max-width: 420px) {
             .page { padding: 24px 14px 88px; }
             .page-header h1 { font-size: 24px; }
-            .mascot-section { margin-bottom: 28px; }
             .bubble-text { font-size: 12px; }
-            .bubble-cta { width: 100%; justify-content: center; }
             .db-char { width: 76px; }
-            .club-card { border-radius: 18px; }
             .card-img { height: 148px; }
             .card-body { padding: 16px 16px 18px; }
             .card-title { font-size: 18px; }
-            .card-desc { font-size: 12px; }
-            .card-stats { padding: 12px 12px; }
         }
     </style>
 </head>
@@ -509,19 +442,16 @@
 
 <div class="page">
 
-    <!-- HEADER -->
-    <div class="page-header" style="animation: fadein 0.4s ease both;">
+    <div class="page-header">
         <h1>Selecciona tu Club</h1>
         <p>Elige el club de tu preferencia para este periodo académico</p>
     </div>
 
-    <!-- RECOMMENDED BANNER -->
     <div class="rec-banner" id="recBanner">
         <div class="rec-banner-title">⭐ Clubs recomendados para ti</div>
         <div class="rec-chips" id="recChips"></div>
     </div>
 
-    <!-- DON BOSCO MASCOT -->
     <div class="mascot-section">
         <div class="mascot-wrap">
             <div class="bubble" onclick="window.location='/cuestionario'">
@@ -531,7 +461,6 @@
                 </div>
                 <a href="/cuestionario" class="bubble-cta">✨ Hacer encuesta rápida</a>
             </div>
-
             <div class="db-char">
                 <svg width="108" height="158" viewBox="0 0 110 160" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <ellipse cx="55" cy="130" rx="32" ry="28" fill="#1a1a2e"/>
@@ -569,16 +498,20 @@
         </div>
     </div>
 
-    <!-- DIVIDER -->
     <div class="divider">
         <span>Clubes disponibles para tu nivel</span>
+    </div>
+
+    <!-- Indicador en vivo -->
+    <div class="live-indicator">
+        <div class="live-dot"></div>
+        <span id="liveText">Cupos en tiempo real</span>
     </div>
 
     {% if disponible %}
     <form action="/inscribir_club" method="POST" id="clubForm">
         <div class="club-grid" id="clubGrid">
             {% for club in clubes %}
-
             {% set icons = ['⚽','🏀','🎨','💻','🎵','🔬','📷','🎭','📚','🌿','🤖','♟️','🥊','🎯','🏊','✏️','🎬','🌍'] %}
             {% set pct = ((club.cupo_maximo - club.cupos_restantes) / club.cupo_maximo * 100) | int if club.cupo_maximo > 0 else 0 %}
 
@@ -588,69 +521,46 @@
                        data-nombre="{{ club.nombre_club }}">
 
                 <div class="club-card {% if club.cupos_restantes <= 0 %}disabled{% endif %}"
-                     data-id="{{ club.id_club }}">
+                     data-id="{{ club.id_club }}"
+                     data-max="{{ club.cupo_maximo }}">
 
                     <div class="card-inner">
-
-                        <!-- Badges flotantes -->
                         <div class="rec-badge">⭐ Recomendado</div>
                         <div class="check-mark">✓</div>
 
-                        <!-- IMAGEN o PLACEHOLDER -->
                         {% if club.imagen %}
                         <div class="card-img">
                             <img src="{{ url_for('static', filename='uploads/clubes/' + club.imagen) }}"
-                                 alt="{{ club.nombre_club }}">
+                                 alt="{{ club.nombre_club }}"
+                                 onerror="this.parentElement.style.display='none'; this.parentElement.nextElementSibling || this.parentElement.insertAdjacentHTML('afterend', '<div class=\'card-img-placeholder\'>{{ icons[loop.index0 % 18] }}</div>')">
                         </div>
                         {% else %}
-                        <div class="card-img-placeholder">
-                            {{ icons[loop.index0 % 18] }}
-                        </div>
+                        <div class="card-img-placeholder">{{ icons[loop.index0 % 18] }}</div>
                         {% endif %}
 
-                        <!-- BODY -->
                         <div class="card-body">
-
-                            <!-- Título -->
                             <div class="card-title">{{ club.nombre_club }}</div>
 
-                            <!-- Descripción -->
                             {% if club.descripcion %}
                             <p class="card-desc">{{ club.descripcion }}</p>
                             {% else %}
-                            <p class="card-desc" style="-webkit-line-clamp:1; opacity:0.4;">
-                                Sin descripción disponible
-                            </p>
+                            <p class="card-desc" style="opacity:0.4;">Sin descripción disponible</p>
                             {% endif %}
 
-                            <!-- Stats -->
                             <div class="card-stats">
-
-                                <!-- Tutor -->
                                 <div class="stat-row">
-                                    <div class="stat-label">
-                                        <span>👨‍🏫</span> Tutor responsable
-                                    </div>
-                                    <div class="stat-value">
-                                        {{ club.tutor if club.tutor else 'Por asignar' }}
-                                    </div>
+                                    <div class="stat-label"><span>👨‍🏫</span> Tutor responsable</div>
+                                    <div class="stat-value">{{ club.tutor if club.tutor else 'Por asignar' }}</div>
                                 </div>
-
-                                <!-- Inscritos -->
                                 <div class="stat-row">
-                                    <div class="stat-label">
-                                        <span>👥</span> Inscritos
-                                    </div>
-                                    <div class="stat-value white">{{ club.inscritos }}</div>
+                                    <div class="stat-label"><span>👥</span> Inscritos</div>
+                                    <div class="stat-value white inscritos-val">{{ club.inscritos }}</div>
                                 </div>
-
-                                <!-- Barra de cupos -->
                                 <div class="cupo-wrap">
                                     <div class="cupo-numbers">
                                         <span>📊 Cupos disponibles</span>
-                                        <span>
-                                            <strong>{{ club.cupos_restantes }}</strong>
-                                            de {{ club.cupo_maximo }}
+                                        <span class="cupos-label">
+                                            <strong>{{ club.cupos_restantes }}</strong> de {{ club.cupo_maximo }}
                                         </span>
                                     </div>
                                     <div class="cupo-track">
@@ -658,14 +568,11 @@
                                              style="width: {{ pct }}%"></div>
                                     </div>
                                 </div>
-
                             </div>
 
-                            <!-- Club lleno -->
                             {% if club.cupos_restantes <= 0 %}
                             <div class="club-full-msg">🔒 Club lleno, pero puedes escoger otro 😊</div>
                             {% endif %}
-
                         </div>
                     </div>
                 </div>
@@ -691,142 +598,153 @@
 </div>
 
 <script>
-    // ✅ NUEVA: Actualizar cupos en TIEMPO REAL cada 2 segundos
-    const ACTUALIZAR_CADA_MS = 2000;
-    
-    function actualizarCupos() {
-        document.querySelectorAll('.club-card').forEach(card => {
-            const clubId = card.dataset.id;
-            if (!clubId) return;
-            
-            fetch(`/api/cupos/${clubId}`)
-                .then(r => r.json())
-                .then(data => {
-                    if (data.error) return;
-                    
-                    // Actualizar barra de progreso
-                    const pct = 100 - (data.cupos_disponibles / data.cupo_maximo * 100);
-                    const fill = card.querySelector('.cupo-fill');
-                    if (fill) {
-                        fill.style.width = pct + '%';
-                        fill.classList.toggle('warning', pct >= 60 && pct < 80);
-                        fill.classList.toggle('danger', pct >= 80);
+// ════════════════════════════════════════════════════════
+// POLLING EFICIENTE — 1 sola llamada cada 20s para TODOS
+// los clubes en vez de 1 llamada por club cada 2s
+// Antes: 5 clubes × cada 2s = 150 req/min por alumno
+// Ahora: 1 llamada cada 20s = 3 req/min por alumno  ✅
+// ════════════════════════════════════════════════════════
+
+function actualizarTodosLosCupos() {
+    fetch('/api/cupos_todos')
+        .then(r => r.json())
+        .then(data => {
+            document.querySelectorAll('.club-card[data-id]').forEach(card => {
+                const id = card.dataset.id;
+                const info = data[id];
+                if (!info) return;
+
+                const max = parseInt(card.dataset.max) || info.cupo_maximo;
+                const disponibles = info.cupos_disponibles;
+                const pct = info.porcentaje_lleno;
+
+                // Actualizar barra
+                const fill = card.querySelector('.cupo-fill');
+                if (fill) {
+                    fill.style.width = pct + '%';
+                    fill.className = 'cupo-fill' +
+                        (pct >= 80 ? ' danger' : pct >= 60 ? ' warning' : '');
+                }
+
+                // Actualizar números
+                const label = card.querySelector('.cupos-label');
+                if (label) {
+                    label.innerHTML = `<strong>${disponibles}</strong> de ${max}`;
+                }
+
+                // Actualizar inscritos
+                const inscVal = card.querySelector('.inscritos-val');
+                if (inscVal) inscVal.textContent = info.inscritos;
+
+                // Bloquear/desbloquear
+                const radio = card.closest('label')?.querySelector('input[type="radio"]');
+                if (info.lleno) {
+                    if (radio) radio.disabled = true;
+                    card.classList.add('disabled');
+                    if (!card.querySelector('.club-full-msg')) {
+                        const msg = document.createElement('div');
+                        msg.className = 'club-full-msg';
+                        msg.innerHTML = '🔒 Club lleno, pero puedes escoger otro 😊';
+                        card.querySelector('.card-body')?.appendChild(msg);
                     }
-                    
-                    // Actualizar número de cupos
-                    const cupoNumbers = card.querySelector('.cupo-numbers');
-                    if (cupoNumbers) {
-                        cupoNumbers.innerHTML = 
-                            `<span>📊 Cupos disponibles</span>
-                             <span><strong>${data.cupos_disponibles}</strong> de ${data.cupo_maximo}</span>`;
-                    }
-                    
-                    // Si está lleno, desactivar
-                    const radio = card.closest('label')?.querySelector('input[type="radio"]');
-                    if (radio && data.lleno) {
-                        radio.disabled = true;
-                        card.classList.add('disabled');
-                        
-                        let mensaje = card.querySelector('.club-full-msg');
-                        if (!mensaje) {
-                            mensaje = document.createElement('div');
-                            mensaje.className = 'club-full-msg';
-                            mensaje.innerHTML = '🔒 Club lleno, pero puedes escoger otro 😊';
-                            card.querySelector('.card-body')?.appendChild(mensaje);
-                        }
-                    } else if (radio && !data.lleno) {
-                        radio.disabled = false;
-                        card.classList.remove('disabled');
-                        const mensaje = card.querySelector('.club-full-msg');
-                        if (mensaje) mensaje.remove();
-                    }
-                })
-                .catch(err => console.error('Error:', err));
+                } else {
+                    if (radio) radio.disabled = false;
+                    card.classList.remove('disabled');
+                    card.querySelector('.club-full-msg')?.remove();
+                }
+            });
+
+            // Actualizar indicador
+            const now = new Date().toLocaleTimeString('es-EC', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+            document.getElementById('liveText').textContent = `Actualizado a las ${now}`;
+        })
+        .catch(() => {
+            // Silencioso — no mostrar error al alumno
         });
+}
+
+// Primera carga inmediata + intervalo de 20 segundos
+actualizarTodosLosCupos();
+setInterval(actualizarTodosLosCupos, 20000);
+
+// ════════════════════════════════════════════════════════
+// BOTÓN CONFIRMAR
+// ════════════════════════════════════════════════════════
+const radios     = document.querySelectorAll('input[name="club"]');
+const confirmBtn = document.getElementById('confirmBtn');
+
+radios.forEach(r => r.addEventListener('change', () => {
+    confirmBtn.disabled = false;
+}));
+
+// ════════════════════════════════════════════════════════
+// ENVÍO DEL FORMULARIO — verificar cupo justo antes
+// ════════════════════════════════════════════════════════
+document.getElementById('clubForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const selectedRadio = document.querySelector('input[name="club"]:checked');
+    if (!selectedRadio) {
+        alert('Por favor selecciona un club.');
+        return;
     }
-    
-    // Actualizar cada 2 segundos
-    setInterval(actualizarCupos, ACTUALIZAR_CADA_MS);
-    actualizarCupos();  // Primera actualización inmediata
-    
-    // ✅ Habilitar botón cuando hay radio seleccionado
-    const radios = document.querySelectorAll('input[name="club"]');
-    const confirmBtn = document.getElementById('confirmBtn');
-    
-    if (radios.length && confirmBtn) {
-        radios.forEach(r => r.addEventListener('change', () => {
-            confirmBtn.disabled = false;
-        }));
-    }
-    
-    // ✅ Validar antes de enviar
-    document.getElementById('clubForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const selectedRadio = document.querySelector('input[name="club"]:checked');
-        if (!selectedRadio) {
-            alert('Por favor selecciona un club');
-            return;
-        }
-        
-        const clubId = selectedRadio.value;
-        confirmBtn.disabled = true;
-        confirmBtn.innerHTML = '⏳ Procesando...';
-        
-        try {
-            // Verificar cupos justo antes de enviar
-            const response = await fetch(`/api/cupos/${clubId}`);
-            const cupos = await response.json();
-            
-            if (cupos.error || cupos.lleno) {
-                alert('❌ Este club ya se llenó. Selecciona otro.');
-                confirmBtn.disabled = false;
-                confirmBtn.innerHTML = '<span>✦</span> Confirmar Inscripción →';
-                return;
-            }
-            
-            // Enviar si hay cupos
-            e.target.submit();
-        } catch (error) {
-            console.error('Error:', error);
-            alert('Error de conexión.');
+
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '⏳ Procesando...';
+
+    try {
+        // Una última verificación de cupos antes de enviar
+        const res  = await fetch('/api/cupos_todos');
+        const data = await res.json();
+        const info = data[selectedRadio.value];
+
+        if (info && info.lleno) {
+            alert('❌ Este club se acaba de llenar. Por favor elige otro.');
             confirmBtn.disabled = false;
             confirmBtn.innerHTML = '<span>✦</span> Confirmar Inscripción →';
+            actualizarTodosLosCupos();
+            return;
+        }
+
+        e.target.submit();
+    } catch {
+        // Si falla la verificación, enviar de todos modos
+        // el servidor valida nuevamente con SELECT FOR UPDATE
+        e.target.submit();
+    }
+});
+
+// ════════════════════════════════════════════════════════
+// RECOMENDACIONES
+// ════════════════════════════════════════════════════════
+const params  = new URLSearchParams(window.location.search);
+const recParam = params.get('rec');
+
+if (recParam) {
+    const recIds = recParam.split(',').map(Number);
+    const banner = document.getElementById('recBanner');
+    const chips  = document.getElementById('recChips');
+
+    recIds.forEach(id => {
+        const card = document.querySelector(`.club-card[data-id="${id}"]`);
+        if (card) {
+            card.classList.add('recommended');
+            const label = card.closest('label');
+            const grid  = document.getElementById('clubGrid');
+            if (label && grid) grid.prepend(label);
+        }
+        const radio = document.querySelector(`input[value="${id}"]`);
+        if (radio) {
+            const chip = document.createElement('div');
+            chip.className = 'rec-chip';
+            chip.innerHTML = `<span>⭐</span>${radio.getAttribute('data-nombre')}`;
+            chips.appendChild(chip);
         }
     });
-    
-    // ✅ RECOMENDACIONES (código original)
-    const params = new URLSearchParams(window.location.search);
-    const recParam = params.get('rec');
 
-    if (recParam) {
-        const recIds = recParam.split(',').map(Number);
-        const banner = document.getElementById('recBanner');
-        const chips  = document.getElementById('recChips');
-
-        recIds.forEach(id => {
-            const card = document.querySelector(`.club-card[data-id="${id}"]`);
-            if (card) {
-                card.classList.add('recommended');
-                const label = card.closest('label');
-                const grid  = document.getElementById('clubGrid');
-                if (label && grid) grid.prepend(label);
-            }
-            const radio = document.querySelector(`input[value="${id}"]`);
-            if (radio) {
-                const chip = document.createElement('div');
-                chip.className = 'rec-chip';
-                chip.innerHTML = `<span>⭐</span>${radio.getAttribute('data-nombre')}`;
-                chips.appendChild(chip);
-            }
-        });
-
-        if (chips.children.length) {
-            banner.classList.add('visible');
-        }
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    if (chips.children.length) banner.classList.add('visible');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 </script>
-
 </body>
 </html>
