@@ -6,6 +6,7 @@ import os
 import time
 import logging
 from flask_compress import Compress
+from flask_caching import Cache
 from contextlib import contextmanager
 from functools import wraps
 import hashlib
@@ -29,6 +30,11 @@ from app_informes import generar_pdf, generar_excel
 # ════════════════════════════════════════════════════════════════════
 app = Flask(__name__)
 Compress(app)
+cache = Cache(app, config={
+    "CACHE_TYPE": "SimpleCache",
+    "CACHE_DEFAULT_TIMEOUT": 5,
+    "CACHE_THRESHOLD": 1000,
+})
 
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-CHANGE-in-production-2024')
 IS_PRODUCTION = os.environ.get('RENDER') == 'true'
@@ -75,7 +81,7 @@ def init_connection_pool():
         # Plan pagado Render + Aiven: optimizado para velocidad
         db_pool = pooling.MySQLConnectionPool(
             pool_name="clubgest_pool",
-            pool_size=15,               # Bajo: 2 workers × 3 = 6 conexiones (Aiven no colapsa)
+            pool_size=5,                # Pequeño para evitar "Too many connections" y mantener rapidez
             pool_reset_session=True,
             host=db_host,
             user=db_user,
@@ -91,7 +97,7 @@ def init_connection_pool():
             ssl_verify_cert=False,      # Aiven usa cert autofirmado
             ssl_verify_identity=False,
         )
-        logger.info("✅ Pool optimizado: 25 conexiones, timeouts 10s, charset utf8mb4")
+        logger.info("✅ Pool optimizado: 5 conexiones por worker, timeouts 30s, charset utf8mb4")
         return True
     except Error as e:
         logger.critical(f"❌ Error inicializando pool: {e}")
@@ -109,8 +115,6 @@ def get_db_connection():
     for intento in range(1, max_intentos + 1):
         try:
             conn = db_pool.get_connection()
-            # Verificar que la conexión siga viva (Aiven cierra idle connections)
-            conn.ping(reconnect=True, attempts=3, delay=1)
             return conn
         except Error as e:
             logger.warning(f"⚠️ Intento {intento}/{max_intentos} de obtener conexión: {e}")
@@ -151,6 +155,24 @@ def get_db():
         except Exception:
             pass
 
+def clear_route_cache():
+    """Limpia la caché de rutas GET después de escrituras."""
+    try:
+        cache.clear()
+    except Exception:
+        pass
+
+def cache_key_clubes():
+    """Clave de caché por nivel para no mezclar listas entre cursos."""
+    return f"clubes:{session.get('nivel', '0')}"
+
+def cache_key_recomendacion():
+    """Clave de caché por nivel y respuestas para no mezclar recomendaciones."""
+    respuestas = session.get("respuestas_recomendacion", [])
+    raw = "|".join(map(str, respuestas))
+    digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()
+    return f"recomendacion:{session.get('nivel', '0')}:{digest}"
+
 # ════════════════════════════════════════════════════════════════════
 # SEGURIDAD — ADMIN CON HASH SHA256
 # ════════════════════════════════════════════════════════════════════
@@ -185,6 +207,7 @@ def inicio():
     return render_template("inicio.html")
 
 @app.route("/formulario")
+@cache.cached(timeout=10)
 def formulario():
     try:
         with get_db() as (conn, cursor):
@@ -252,6 +275,7 @@ def inscribirse():
             session["id_estudiante"] = cursor.lastrowid
             session["nivel"] = nivel
 
+        clear_route_cache()
         return redirect("/clubes")
     except Exception as e:
         logger.error(f"❌ /inscribirse: {e}")
@@ -281,6 +305,7 @@ def guardar_respuestas():
     return redirect("/recomendacion_clubes")
 
 @app.route("/recomendacion_clubes")
+@cache.cached(timeout=5, key_prefix=cache_key_recomendacion, unless=lambda: "id_estudiante" not in session)
 def recomendacion_clubes():
     if "id_estudiante" not in session:
         return redirect("/formulario")
@@ -293,14 +318,17 @@ def recomendacion_clubes():
             
             # ⚡ OPTIMIZADO: Subconsulta en lugar de GROUP BY
             cursor.execute("""
-                SELECT clubes.*,
-                       niveles.nombre_nivel,
-                       COALESCE((SELECT COUNT(*) FROM inscripciones WHERE id_club = clubes.id_club), 0) AS inscritos,
-                       GREATEST(0, clubes.cupo_maximo - COALESCE((SELECT COUNT(*) FROM inscripciones WHERE id_club = clubes.id_club), 0)) AS cupos_restantes
-                FROM clubes
-                JOIN niveles ON clubes.id_nivel = niveles.id_nivel
-                WHERE clubes.id_nivel = %s AND clubes.activo = 1
-                ORDER BY clubes.nombre_club
+                SELECT
+                    c.*,
+                    n.nombre_nivel,
+                    COUNT(i.id_inscripcion) AS inscritos,
+                    GREATEST(0, c.cupo_maximo - COUNT(i.id_inscripcion)) AS cupos_restantes
+                FROM clubes c
+                JOIN niveles n ON c.id_nivel = n.id_nivel
+                LEFT JOIN inscripciones i ON c.id_club = i.id_club
+                WHERE c.id_nivel = %s AND c.activo = 1
+                GROUP BY c.id_club
+                ORDER BY c.nombre_club
             """, (nivel,))
             clubes_disponibles = cursor.fetchall()
 
@@ -320,6 +348,7 @@ def recomendacion_clubes():
         return render_template("error.html", error="Error al cargar recomendaciones.")
 
 @app.route("/clubes")
+@cache.cached(timeout=5, key_prefix=cache_key_clubes, unless=lambda: "id_estudiante" not in session)
 def clubes():
     if "id_estudiante" not in session:
         return redirect("/formulario")
@@ -330,13 +359,15 @@ def clubes():
             
             # ⚡ OPTIMIZADO: Subconsulta en lugar de GROUP BY (más rápido en MySQL)
             cursor.execute("""
-                SELECT 
-                    clubes.*,
-                    COALESCE((SELECT COUNT(*) FROM inscripciones WHERE id_club = clubes.id_club), 0) AS inscritos,
-                    GREATEST(0, clubes.cupo_maximo - COALESCE((SELECT COUNT(*) FROM inscripciones WHERE id_club = clubes.id_club), 0)) AS cupos_restantes
-                FROM clubes
-                WHERE clubes.id_nivel = %s AND clubes.activo = 1
-                ORDER BY clubes.nombre_club
+                SELECT
+                    c.*,
+                    COUNT(i.id_inscripcion) AS inscritos,
+                    GREATEST(0, c.cupo_maximo - COUNT(i.id_inscripcion)) AS cupos_restantes
+                FROM clubes c
+                LEFT JOIN inscripciones i ON c.id_club = i.id_club
+                WHERE c.id_nivel = %s AND c.activo = 1
+                GROUP BY c.id_club
+                ORDER BY c.nombre_club
             """, (nivel,))
             clubes_lista = cursor.fetchall()
 
@@ -391,7 +422,7 @@ def inscribir_club():
 
             # 1. Verificar que el estudiante existe
             cursor.execute(
-                "SELECT id_estudiante, id_nivel FROM estudiantes WHERE id_estudiante = %s FOR SHARE",
+                "SELECT id_estudiante, id_nivel FROM estudiantes WHERE id_estudiante = %s",
                 (estudiante_id,)
             )
             est = cursor.fetchone()
@@ -408,7 +439,7 @@ def inscribir_club():
             if cursor.fetchone():
                 conn.rollback()
                 session.clear()
-                return render_template("exito.html")  # Ya estaba inscrito, mostrar éxito
+                return render_template("error.html", error="Ya tienes una inscripción activa. No puedes elegir otro club.")
 
             # 3. Bloquear la fila del club (FOR UPDATE) para contar en exclusiva
             cursor.execute(
@@ -427,9 +458,9 @@ def inscribir_club():
                 conn.rollback()
                 return render_template("error.html", error="Este club no corresponde a tu nivel académico.")
 
-            # 4. Contar inscritos DENTRO de la transacción bloqueada (con FOR UPDATE en inscripciones)
+            # 4. Contar inscritos dentro de la transacción bloqueada del club
             cursor.execute(
-                "SELECT COUNT(*) AS total FROM inscripciones WHERE id_club = %s FOR UPDATE",
+                "SELECT COUNT(*) AS total FROM inscripciones WHERE id_club = %s",
                 (club_id,)
             )
             total_inscritos = cursor.fetchone()['total']
@@ -459,6 +490,7 @@ def inscribir_club():
             session.pop("id_estudiante", None)
             session.pop("nivel", None)
             session.pop("respuestas_recomendacion", None)
+            clear_route_cache()
 
             return render_template("exito.html")
 
@@ -486,9 +518,7 @@ def inscribir_club():
             except Exception:
                 pass
             logger.warning(f"⚠️ IntegrityError (posible duplicado): {e}")
-            # Si es duplicado de inscripción, el alumno ya está inscrito
-            session.clear()
-            return render_template("exito.html")
+            return render_template("error.html", error="Ya estabas inscrito o este club ya quedó lleno. Elige otra opción.")
 
         except Exception as e:
             try:
@@ -519,6 +549,7 @@ def inscribir_club():
 # ════════════════════════════════════════════════════════════════════
 
 @app.route("/api/cupos/<int:club_id>")
+@cache.cached(timeout=3)
 def api_cupos(club_id):
     """Devuelve cupos disponibles para polling desde el frontend."""
     try:
@@ -550,6 +581,7 @@ def api_cupos(club_id):
 
 
 @app.route("/api/cupos_todos")
+@cache.cached(timeout=3)
 def api_cupos_todos():
     """Una sola query para todos los clubes — reemplaza el polling individual."""
     try:
@@ -681,6 +713,7 @@ def crear_club():
             """, (nombre, tutor, descripcion, filename, cupo, nivel))
 
             flash(f"Club '{nombre}' creado exitosamente con {cupo} cupos.", "success")
+            clear_route_cache()
     except mysql.connector.Error as err:
         if err.errno == 1062:
             flash("Error: El tutor ya está asignado a otro club.", "error")
@@ -741,6 +774,7 @@ def editar_club(club_id):
             """, (nombre, tutor, descripcion, filename, cupo, nivel, club_id))
 
             flash("Club actualizado exitosamente.", "success")
+            clear_route_cache()
     except mysql.connector.Error as err:
         if err.errno == 1062:
             flash("Error: El tutor ya está asignado.", "error")
@@ -771,6 +805,7 @@ def desactivar(club_id):
     except Exception as e:
         logger.error(f"❌ /desactivar/{club_id}: {e}")
         flash("Error al desactivar.", "error")
+    clear_route_cache()
     return redirect(request.headers.get("Referer") or "/admin")
 
 @app.route("/activar/<int:club_id>")
@@ -783,6 +818,7 @@ def activar(club_id):
     except Exception as e:
         logger.error(f"❌ /activar/{club_id}: {e}")
         flash("Error al activar.", "error")
+    clear_route_cache()
     return redirect(request.headers.get("Referer") or "/admin")
 
 @app.route("/eliminar_club/<int:club_id>")
@@ -805,6 +841,7 @@ def eliminar_club(club_id):
 
             cursor.execute("DELETE FROM clubes WHERE id_club = %s", (club_id,))
             flash("Club eliminado. Los estudiantes pueden volver a inscribirse.", "success")
+            clear_route_cache()
     except Exception as e:
         logger.error(f"❌ /eliminar_club/{club_id}: {e}")
         flash("Error al eliminar el club.", "error")

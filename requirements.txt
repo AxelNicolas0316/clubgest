@@ -9,3 +9,4 @@ gunicorn==21.2.0
 requests==2.31.0
 reportlab==4.2.5
 Flask-Compress==1.13
+Flask-Caching==2.4.0
