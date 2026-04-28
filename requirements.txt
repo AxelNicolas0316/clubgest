@@ -10,3 +10,4 @@ requests==2.31.0
 reportlab==4.2.5
 Flask-Compress==1.13
 Flask-Caching==2.4.0
+pytz==2024.1
