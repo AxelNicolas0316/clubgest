@@ -11,6 +11,8 @@ from contextlib import contextmanager
 from functools import wraps
 import hashlib
 import threading
+from datetime import datetime, timezone
+import pytz
 
 # ════════════════════════════════════════════════════════════════════
 # CONFIGURACIÓN DE LOGGING
@@ -43,6 +45,19 @@ app.config['SESSION_COOKIE_SECURE'] = IS_PRODUCTION
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hora (más tolerante para alumnos lentos)
+
+# ════════════════════════════════════════════════════════════════════
+# CONFIGURACIÓN DE ZONA HORARIA — ECUADOR UTC-5
+# ════════════════════════════════════════════════════════════════════
+TZ_ECUADOR = pytz.timezone('America/Guayaquil')
+
+def get_ahora():
+    """Obtiene la hora actual de Ecuador en formato datetime."""
+    return datetime.now(tz=TZ_ECUADOR)
+
+def get_ahora_str():
+    """Obtiene la hora actual de Ecuador en formato string 'YYYY-MM-DD HH:MM:SS'."""
+    return get_ahora().strftime('%Y-%m-%d %H:%M:%S')
 
 # Configuración de imágenes
 UPLOAD_FOLDER = 'static/uploads/clubes'
@@ -96,6 +111,7 @@ def init_connection_pool():
             auth_plugin='mysql_native_password',
             ssl_verify_cert=False,      # Aiven usa cert autofirmado
             ssl_verify_identity=False,
+            init_command="SET time_zone = '-05:00'",  # 🕐 UTC-5 para Ecuador
         )
         logger.info("✅ Pool optimizado: 10 conexiones por worker, timeouts 30s, charset utf8mb4")
         return True
@@ -478,10 +494,11 @@ def inscribir_club():
                     mostrar_volver=True
                 )
 
-            # 5. Insertar inscripción
+            # 5. Insertar inscripción con fecha/hora exacta de Ecuador
+            ahora = get_ahora_str()
             cursor.execute(
-                "INSERT INTO inscripciones (id_estudiante, id_club, fecha_hora) VALUES (%s, %s, NOW())",
-                (estudiante_id, club_id)
+                "INSERT INTO inscripciones (id_estudiante, id_club, fecha_hora) VALUES (%s, %s, %s)",
+                (estudiante_id, club_id, ahora)
             )
 
             conn.commit()
@@ -661,7 +678,8 @@ def admin():
 
             cursor.execute("""
                 SELECT e.nombres, e.apellidos, n.nombre_nivel, c.nombre_club,
-                       DATE(i.fecha_hora) AS fecha, TIME(i.fecha_hora) AS hora
+                       DATE_FORMAT(i.fecha_hora, '%d/%m/%Y') AS fecha, 
+                       DATE_FORMAT(i.fecha_hora, '%H:%i:%s') AS hora
                 FROM inscripciones i
                 JOIN estudiantes e ON i.id_estudiante = e.id_estudiante
                 JOIN clubes c ON i.id_club = c.id_club
@@ -865,7 +883,8 @@ def admin_inscripciones():
                     SELECT e.id_estudiante, e.nombres, e.apellidos, e.correo_institucional, e.genero,
                            e.id_nivel, e.id_especialidad, c.id_club, c.nombre_club, c.tutor,
                            esp.nombre_especialidad,
-                           DATE(i.fecha_hora) AS fecha, TIME(i.fecha_hora) AS hora
+                           DATE_FORMAT(i.fecha_hora, '%d/%m/%Y') AS fecha, 
+                           DATE_FORMAT(i.fecha_hora, '%H:%i:%s') AS hora
                     FROM inscripciones i
                     JOIN estudiantes e  ON i.id_estudiante = e.id_estudiante
                     JOIN clubes c       ON i.id_club = c.id_club
@@ -903,7 +922,8 @@ def admin_clubes():
                            e.correo_institucional, e.genero, e.id_nivel, e.id_especialidad,
                            esp.nombre_especialidad,
                            i.id_inscripcion,
-                           DATE(i.fecha_hora) AS fecha, TIME(i.fecha_hora) AS hora
+                           DATE_FORMAT(i.fecha_hora, '%d/%m/%Y') AS fecha, 
+                           DATE_FORMAT(i.fecha_hora, '%H:%i:%s') AS hora
                     FROM clubes c
                     LEFT JOIN inscripciones i ON c.id_club = i.id_club
                     LEFT JOIN estudiantes e   ON i.id_estudiante = e.id_estudiante
