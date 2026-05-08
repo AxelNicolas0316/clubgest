@@ -678,8 +678,8 @@ def admin():
 
             cursor.execute("""
                 SELECT e.nombres, e.apellidos, n.nombre_nivel, c.nombre_club,
-                       DATE_FORMAT(i.fecha_hora, '%d/%m/%Y') AS fecha, 
-                       DATE_FORMAT(i.fecha_hora, '%H:%i:%s') AS hora
+                       DATE_FORMAT(i.fecha_hora, '%%d/%%m/%%Y') AS fecha, 
+                       DATE_FORMAT(i.fecha_hora, '%%H:%%i:%%s') AS hora
                 FROM inscripciones i
                 JOIN estudiantes e ON i.id_estudiante = e.id_estudiante
                 JOIN clubes c ON i.id_club = c.id_club
@@ -883,8 +883,8 @@ def admin_inscripciones():
                     SELECT e.id_estudiante, e.nombres, e.apellidos, e.correo_institucional, e.genero,
                            e.id_nivel, e.id_especialidad, c.id_club, c.nombre_club, c.tutor,
                            esp.nombre_especialidad,
-                           DATE_FORMAT(i.fecha_hora, '%d/%m/%Y') AS fecha, 
-                           DATE_FORMAT(i.fecha_hora, '%H:%i:%s') AS hora
+                           DATE_FORMAT(i.fecha_hora, '%%d/%%m/%%Y') AS fecha, 
+                           DATE_FORMAT(i.fecha_hora, '%%H:%%i:%%s') AS hora
                     FROM inscripciones i
                     JOIN estudiantes e  ON i.id_estudiante = e.id_estudiante
                     JOIN clubes c       ON i.id_club = c.id_club
@@ -922,8 +922,8 @@ def admin_clubes():
                            e.correo_institucional, e.genero, e.id_nivel, e.id_especialidad,
                            esp.nombre_especialidad,
                            i.id_inscripcion,
-                           DATE_FORMAT(i.fecha_hora, '%d/%m/%Y') AS fecha, 
-                           DATE_FORMAT(i.fecha_hora, '%H:%i:%s') AS hora
+                           DATE_FORMAT(i.fecha_hora, '%%d/%%m/%%Y') AS fecha, 
+                           DATE_FORMAT(i.fecha_hora, '%%H:%%i:%%s') AS hora
                     FROM clubes c
                     LEFT JOIN inscripciones i ON c.id_club = i.id_club
                     LEFT JOIN estudiantes e   ON i.id_estudiante = e.id_estudiante
