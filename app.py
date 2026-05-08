@@ -677,9 +677,7 @@ def admin():
             especialidades = cursor.fetchall()
 
             cursor.execute("""
-                SELECT e.nombres, e.apellidos, n.nombre_nivel, c.nombre_club,
-                       DATE_FORMAT(i.fecha_hora, '%%d/%%m/%%Y') AS fecha, 
-                       DATE_FORMAT(i.fecha_hora, '%%H:%%i:%%s') AS hora
+                SELECT e.nombres, e.apellidos, n.nombre_nivel, c.nombre_club, i.fecha_hora
                 FROM inscripciones i
                 JOIN estudiantes e ON i.id_estudiante = e.id_estudiante
                 JOIN clubes c ON i.id_club = c.id_club
@@ -688,6 +686,10 @@ def admin():
                 LIMIT 20
             """)
             historial = cursor.fetchall()
+            for row in historial:
+                if row['fecha_hora']:
+                    row['fecha'] = row['fecha_hora'].strftime('%d/%m/%Y')
+                    row['hora'] = row['fecha_hora'].strftime('%H:%M:%S')
 
         return render_template("admin.html",
             clubes=clubes, niveles=niveles,
@@ -882,9 +884,7 @@ def admin_inscripciones():
                 cursor.execute("""
                     SELECT e.id_estudiante, e.nombres, e.apellidos, e.correo_institucional, e.genero,
                            e.id_nivel, e.id_especialidad, c.id_club, c.nombre_club, c.tutor,
-                           esp.nombre_especialidad,
-                           DATE_FORMAT(i.fecha_hora, '%%d/%%m/%%Y') AS fecha, 
-                           DATE_FORMAT(i.fecha_hora, '%%H:%%i:%%s') AS hora
+                           esp.nombre_especialidad, i.fecha_hora
                     FROM inscripciones i
                     JOIN estudiantes e  ON i.id_estudiante = e.id_estudiante
                     JOIN clubes c       ON i.id_club = c.id_club
@@ -892,7 +892,12 @@ def admin_inscripciones():
                     WHERE e.id_nivel = %s
                     ORDER BY e.apellidos, e.nombres
                 """, (id_nivel,))
-                return cursor.fetchall()
+                rows = cursor.fetchall()
+                for row in rows:
+                    if row['fecha_hora']:
+                        row['fecha'] = row['fecha_hora'].strftime('%d/%m/%Y')
+                        row['hora'] = row['fecha_hora'].strftime('%H:%M:%S')
+                return rows
 
             return render_template("admin_inscripciones.html",
                 primero=get_lista(1), segundo=get_lista(2), tercero=get_lista(3),
@@ -921,9 +926,7 @@ def admin_clubes():
                            e.id_estudiante, e.nombres, e.apellidos,
                            e.correo_institucional, e.genero, e.id_nivel, e.id_especialidad,
                            esp.nombre_especialidad,
-                           i.id_inscripcion,
-                           DATE_FORMAT(i.fecha_hora, '%%d/%%m/%%Y') AS fecha, 
-                           DATE_FORMAT(i.fecha_hora, '%%H:%%i:%%s') AS hora
+                           i.id_inscripcion, i.fecha_hora
                     FROM clubes c
                     LEFT JOIN inscripciones i ON c.id_club = i.id_club
                     LEFT JOIN estudiantes e   ON i.id_estudiante = e.id_estudiante
@@ -931,7 +934,12 @@ def admin_clubes():
                     WHERE c.id_nivel = %s
                     ORDER BY c.nombre_club, e.apellidos
                 """, (id_nivel,))
-                return cursor.fetchall()
+                rows = cursor.fetchall()
+                for row in rows:
+                    if row['fecha_hora']:
+                        row['fecha'] = row['fecha_hora'].strftime('%d/%m/%Y')
+                        row['hora'] = row['fecha_hora'].strftime('%H:%M:%S')
+                return rows
 
             return render_template("admin_clubes.html",
                 primero=get_lista_club(1), segundo=get_lista_club(2), tercero=get_lista_club(3),
